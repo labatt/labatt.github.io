@@ -447,27 +447,29 @@ $(document).ready(function() {
 
     // Load CSV data
     function loadCSVData() {
-        Papa.parse("sales_data.csv", {
+        Papa.parse("https://labatt.github.io/sales_data.csv", {
             download: true,
             header: true,
+            skipEmptyLines: true,
             complete: function(results) {
-                const data = results.data.filter(row => row['Property Class']);
+                const data = results.data.filter(row => row && row['Property Class']);
+                
                 const formattedData = data.map(row => {
-                    // Clean up the price per sqft value to ensure it's a number
-                    let pricePerSqft = row['Sale Price per SqFt'] || '';
-                    pricePerSqft = pricePerSqft.replace(/[^0-9.]/g, '');
+                    // Use safe type conversions with fallback values
+                    const salePrice = row['Sale Price'] ? String(row['Sale Price']).replace(/[^0-9]/g, '') : '0';
+                    const pricePerSqft = row['Sale Price per SqFt'] ? String(row['Sale Price per SqFt']).replace(/[^0-9.]/g, '') : '0';
                     
                     return [
-                        row['Property Class'],
-                        row['Sale Date'],
-                        row['Sale Price'].replace(/[^0-9]/g, ''),
-                        row['SqFt'],
-                        pricePerSqft,  // Make sure it's a clean number
-                        row['Style'],
-                        row['Year Built'],
-                        row['Acreage'],
-                        row['Bedrooms'],
-                        row['Baths']
+                        row['Property Class'] || '',
+                        row['Sale Date'] || '',
+                        salePrice,
+                        row['SqFt'] || '0',
+                        pricePerSqft,
+                        row['Style'] || '',
+                        row['Year Built'] || '',
+                        row['Acreage'] || '0',
+                        row['Bedrooms'] || '0',
+                        row['Baths'] || '0'
                     ];
                 });
 
@@ -475,6 +477,10 @@ $(document).ready(function() {
                 createFilters();
                 updateStats();
                 createCharts(data);
+            },
+            error: function(error) {
+                console.error("Error loading CSV:", error);
+                $('#salesTable tbody').html('<tr><td colspan="10" class="text-center">Error loading data</td></tr>');
             }
         });
     }
@@ -538,31 +544,42 @@ $(document).ready(function() {
 
     // Update statistics in footer
     function updateStats() {
-        const filteredRows = table.rows({search:'applied'}).data();
-        const totalRows = filteredRows.count();
-        $('#rowCount').text(totalRows);
-        
-        let totalPrice = 0;
-        let totalSqft = 0;
-        let totalPricePerSqft = 0;
-        
-        filteredRows.each(function(rowData) {
-            const price = parseFloat(rowData[2].replace(/[^0-9.-]+/g, '')) || 0;
-            const sqft = parseFloat(rowData[3]) || 0;
-            const pricePerSqft = parseFloat(rowData[4]) || 0;
+        try {
+            const filteredRows = table.rows({search:'applied'}).data();
+            const totalRows = filteredRows.count();
+            $('#rowCount').text(totalRows);
             
-            totalPrice += price;
-            totalSqft += sqft;
-            totalPricePerSqft += pricePerSqft;
-        });
-        
-        const avgPrice = totalPrice / (totalRows || 1);
-        const avgSqft = totalSqft / (totalRows || 1);
-        const avgPricePerSqft = totalPricePerSqft / (totalRows || 1);
-        
-        $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
-        $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
-        $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {maximumFractionDigits: 2}));
+            let totalPrice = 0;
+            let totalSqft = 0;
+            let totalPricePerSqft = 0;
+            
+            filteredRows.each(function(rowData) {
+                try {
+                    const price = parseFloat(String(rowData[2]).replace(/[^0-9.-]+/g, '')) || 0;
+                    const sqft = parseFloat(rowData[3]) || 0;
+                    const pricePerSqft = parseFloat(rowData[4]) || 0;
+                    
+                    totalPrice += price;
+                    totalSqft += sqft;
+                    totalPricePerSqft += pricePerSqft;
+                } catch (e) {
+                    console.warn("Error processing row for stats:", e);
+                }
+            });
+            
+            const avgPrice = totalPrice / (totalRows || 1);
+            const avgSqft = totalSqft / (totalRows || 1);
+            const avgPricePerSqft = totalPricePerSqft / (totalRows || 1);
+            
+            $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
+            $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
+            $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {maximumFractionDigits: 2}));
+        } catch (e) {
+            console.error("Error updating stats:", e);
+            $('#avgPrice').text('$0');
+            $('#avgSqft').text('0');
+            $('#avgPricePerSqft').text('$0.00');
+        }
     }
     
     // Create charts
@@ -570,8 +587,16 @@ $(document).ready(function() {
         // Group data by style
         const styleGroups = {};
         data.forEach(row => {
+            if (!row || !row['Style']) return;
+            
             const style = row['Style'];
-            const price = parseFloat(row['Sale Price'].replace(/[^0-9]/g, '')) || 0;
+            let price = 0;
+            
+            try {
+                price = row['Sale Price'] ? parseFloat(String(row['Sale Price']).replace(/[^0-9]/g, '')) : 0;
+            } catch (e) {
+                price = 0;
+            }
             
             if (!styleGroups[style]) {
                 styleGroups[style] = [];
@@ -643,17 +668,27 @@ $(document).ready(function() {
         // Group data by decade for year built chart
         const yearData = {};
         data.forEach(row => {
-            const year = parseInt(row['Year Built']);
-            if (!year) return;
+            if (!row || !row['Year Built']) return;
             
-            const decade = Math.floor(year / 10) * 10;
-            const pricePerSqft = parseFloat(row['Sale Price per SqFt'].replace(/[^0-9.]/g, '')) || 0;
-            
-            if (!yearData[decade]) {
-                yearData[decade] = [];
+            try {
+                const year = parseInt(row['Year Built']);
+                if (!year || isNaN(year)) return;
+                
+                const decade = Math.floor(year / 10) * 10;
+                let pricePerSqft = 0;
+                
+                if (row['Sale Price per SqFt']) {
+                    pricePerSqft = parseFloat(String(row['Sale Price per SqFt']).replace(/[^0-9.]/g, '')) || 0;
+                }
+                
+                if (!yearData[decade]) {
+                    yearData[decade] = [];
+                }
+                
+                yearData[decade].push(pricePerSqft);
+            } catch (e) {
+                console.error("Error parsing year data:", e);
             }
-            
-            yearData[decade].push(pricePerSqft);
         });
         
         // Calculate average price per sqft by decade
