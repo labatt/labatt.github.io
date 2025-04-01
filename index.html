@@ -65,14 +65,22 @@ $(document).ready(function() {
             download: true,
             header: true,
             complete: function(results) {
-                results.data.forEach(row => {
-                    table.row.add([
-                        row['Property Class'], row['Sale Date'], row['Sale Price'], row['SqFt'],
-                        row['Sale Price per SqFt'], row['Sale Price Time Adj'], row['Style'],
-                        row['Year Built'], row['Acreage'], row['Bedrooms'], row['Baths']
-                    ]);
-                });
-                table.draw();
+                const data = results.data.filter(row => row['Property Class']);
+                const formattedData = data.map(row => ([
+                    row['Property Class'] || '',
+                    row['Sale Date'] || '',
+                    row['Sale Price'] || '',
+                    row['SqFt'] || '',
+                    row['Sale Price per SqFt'] || '',
+                    row['Sale Price Time Adj'] || '',
+                    row['Style'] || '',
+                    row['Year Built'] || '',
+                    row['Acreage'] || '',
+                    row['Bedrooms'] || '',
+                    row['Baths'] || ''
+                ]));
+
+                table.rows.add(formattedData).draw();
                 createFilters();
                 updateFooter();
             }
