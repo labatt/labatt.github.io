@@ -28,7 +28,7 @@
             --text-color: #333333;
             --light-text: #6c757d;
             --table-header-bg: #4361ee;
-            --table-header-color: white;
+            --table-header-color: #ffffff;
             --table-row-hover: rgba(67, 97, 238, 0.1);
             --table-stripe: rgba(67, 97, 238, 0.05);
             --border-radius: 12px;
@@ -214,6 +214,20 @@
             letter-spacing: 0.5px;
             border-bottom: none;
             vertical-align: middle;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0px 0px 1px rgba(0,0,0,0.2);
+        }
+        
+        /* Specific styling to ensure header text is visible */
+        .table-striped > thead > tr {
+            background-color: var(--table-header-bg) !important;
+        }
+        
+        .table-striped > thead > tr > th {
+            color: white !important;
+            background-color: var(--table-header-bg) !important;
+            font-weight: 600 !important;
         }
         
         table.dataTable tbody tr {
@@ -303,6 +317,13 @@
             .header h1 {
                 font-size: 1.75rem;
             }
+        }
+        
+        /* Add this at the end of the style section to override any conflicting styles */
+        #salesTable thead th {
+            background-color: #4361ee !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
         }
     </style>
 </head>
@@ -442,7 +463,16 @@ $(document).ready(function() {
         columnDefs: [
             { className: "text-center", targets: [3, 6, 7, 8, 9] }
         ],
-        order: [[2, 'desc']] // Sort by sale price descending by default
+        order: [[2, 'desc']], // Sort by sale price descending by default
+        "autoWidth": false,
+        "responsive": true,
+        "drawCallback": function() {
+            // Ensure headers have the correct styling applied after table draw
+            $('#salesTable thead th').css({
+                'background-color': '#4361ee',
+                'color': 'white'
+            });
+        }
     });
 
     // Load CSV data
