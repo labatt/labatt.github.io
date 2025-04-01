@@ -442,8 +442,9 @@ $(document).ready(function() {
     
     // Initialize DataTable with fewer visible columns
     const table = $('#salesTable').DataTable({
-        dom: 'lrtip',  // Hide default search box
+        dom: '<"d-flex justify-content-between align-items-center mb-3"fl>rtip',  // Show length menu and processing
         pageLength: 15,
+        lengthMenu: [10, 15, 25, 50, 100],
         columns: [
             { title: "Property Class" }, 
             { title: "Sale Date" }, 
@@ -452,7 +453,9 @@ $(document).ready(function() {
             }}, 
             { title: "SqFt" },
             { title: "Price/SqFt", render: function(data) {
-                return '$' + parseFloat(data).toFixed(2);
+                // Handle NaN values
+                const value = parseFloat(data);
+                return isNaN(value) ? '$0.00' : '$' + value.toFixed(2);
             }}, 
             { title: "Style" },
             { title: "Year Built" }, 
@@ -464,9 +467,15 @@ $(document).ready(function() {
             { className: "text-center", targets: [3, 6, 7, 8, 9] }
         ],
         order: [[2, 'desc']], // Sort by sale price descending by default
-        "autoWidth": false,
-        "responsive": true,
-        "drawCallback": function() {
+        autoWidth: false,
+        responsive: true,
+        language: {
+            lengthMenu: "Show _MENU_ entries",
+            info: "Showing _START_ to _END_ of _TOTAL_ entries",
+            infoEmpty: "Showing 0 to 0 of 0 entries",
+            infoFiltered: "(filtered from _MAX_ total entries)"
+        },
+        drawCallback: function() {
             // Ensure headers have the correct styling applied after table draw
             $('#salesTable thead th').css({
                 'background-color': '#4361ee',
@@ -487,7 +496,16 @@ $(document).ready(function() {
                 const formattedData = data.map(row => {
                     // Use safe type conversions with fallback values
                     const salePrice = row['Sale Price'] ? String(row['Sale Price']).replace(/[^0-9]/g, '') : '0';
-                    const pricePerSqft = row['Sale Price per SqFt'] ? String(row['Sale Price per SqFt']).replace(/[^0-9.]/g, '') : '0';
+                    
+                    // Handle Price/SqFt more carefully
+                    let pricePerSqft = '0';
+                    if (row['Sale Price per SqFt']) {
+                        // Strip non-numeric characters except decimal point
+                        const cleanValue = String(row['Sale Price per SqFt']).replace(/[^0-9.]/g, '');
+                        // Make sure it's a valid number
+                        const numValue = parseFloat(cleanValue);
+                        pricePerSqft = !isNaN(numValue) ? numValue.toString() : '0';
+                    }
                     
                     return [
                         row['Property Class'] || '',
@@ -519,6 +537,8 @@ $(document).ready(function() {
     function createFilters() {
         $('#filters').empty();
         
+        // Get unique values for each filter column
+        const filterValues = {};
         const filterColumns = [
             { index: 0, name: 'Property Class' },
             { index: 5, name: 'Style' },
@@ -527,13 +547,38 @@ $(document).ready(function() {
             { index: 6, name: 'Year Built' }
         ];
         
+        // Extract unique values from table data
+        filterColumns.forEach(column => {
+            const uniqueValues = new Set();
+            table.column(column.index).data().each(function(value) {
+                if (value && value.trim() !== '') {
+                    uniqueValues.add(value.toString().trim());
+                }
+            });
+            filterValues[column.name] = Array.from(uniqueValues).sort();
+        });
+        
+        // Create filter inputs with datalists
         filterColumns.forEach(column => {
             const filterItem = $('<div class="filter-item"></div>').appendTo('#filters');
             $('<div class="filter-label">' + column.name + '</div>').appendTo(filterItem);
-            $('<input type="text" class="filter-input" placeholder="Filter ' + column.name + '">').appendTo(filterItem).on('keyup change', function() {
+            
+            // Create input with datalist for suggestions
+            const inputId = 'filter-' + column.name.toLowerCase().replace(/\s+/g, '-');
+            const datalistId = 'list-' + inputId;
+            
+            const input = $('<input type="text" class="filter-input" id="' + inputId + '" placeholder="Filter ' + column.name + '" list="' + datalistId + '">');
+            input.appendTo(filterItem).on('keyup change', function() {
                 table.column(column.index).search(this.value).draw();
                 updateStats();
             });
+            
+            // Create datalist with options
+            const datalist = $('<datalist id="' + datalistId + '"></datalist>');
+            filterValues[column.name].forEach(value => {
+                $('<option value="' + value + '"></option>').appendTo(datalist);
+            });
+            datalist.appendTo(filterItem);
         });
         
         // Add price range filter
