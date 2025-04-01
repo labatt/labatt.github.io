@@ -593,36 +593,46 @@ $(document).ready(function() {
                 return;
             }
             
-            const filteredRows = table.rows({search:'applied'}).data();
-            const totalRows = filteredRows.count();
+            // Get the visible (filtered) rows
+            const visibleRows = table.rows({search: 'applied'}).data();
+            const totalVisibleRows = visibleRows.length;
             
-            console.log(`Updating stats with ${totalRows} rows`);
-            $('#rowCount').text(totalRows);
+            console.log(`Updating stats with ${totalVisibleRows} visible rows`);
+            $('#rowCount').text(totalVisibleRows);
             
             let totalPrice = 0;
             let totalSqft = 0;
             let totalPricePerSqft = 0;
             
             // Only proceed if there are rows
-            if (totalRows > 0) {
-                filteredRows.each(function(rowData, i) {
+            if (totalVisibleRows > 0) {
+                // Process each visible row
+                for (let i = 0; i < totalVisibleRows; i++) {
                     try {
+                        const rowData = visibleRows[i];
+                        
                         // Get the raw values from the cells
                         let priceRaw = rowData[4] || '0';
                         let sqftRaw = rowData[5] || '0';
                         let pricePerSqftRaw = rowData[6] || '0';
                         
                         // Clean the values - remove currency symbols and commas
-                        if (typeof priceRaw === 'string') priceRaw = priceRaw.replace(/[$,]/g, '');
-                        if (typeof sqftRaw === 'string') sqftRaw = sqftRaw.replace(/[$,]/g, '');
-                        if (typeof pricePerSqftRaw === 'string') pricePerSqftRaw = pricePerSqftRaw.replace(/[$,]/g, '');
+                        if (typeof priceRaw === 'string') {
+                            priceRaw = priceRaw.replace(/[$,]/g, '');
+                        }
+                        if (typeof sqftRaw === 'string') {
+                            sqftRaw = sqftRaw.replace(/[,$]/g, '');
+                        }
+                        if (typeof pricePerSqftRaw === 'string') {
+                            pricePerSqftRaw = pricePerSqftRaw.replace(/[$,]/g, '');
+                        }
                         
                         // Parse values
                         const price = parseFloat(priceRaw) || 0;
                         const sqft = parseFloat(sqftRaw) || 0;
                         const pricePerSqft = parseFloat(pricePerSqftRaw) || 0;
                         
-                        // Debug first 5 rows to understand the values
+                        // Debug first 5 rows
                         if (i < 5) {
                             console.log(`Row ${i}: Price=${priceRaw}->${price}, SqFt=${sqftRaw}->${sqft}, Price/SqFt=${pricePerSqftRaw}->${pricePerSqft}`);
                         }
@@ -633,17 +643,18 @@ $(document).ready(function() {
                     } catch (e) {
                         console.warn("Error processing row for stats:", e);
                     }
-                });
+                }
                 
-                const avgPrice = totalPrice / totalRows;
-                const avgSqft = totalSqft / totalRows;
-                const avgPricePerSqft = totalPricePerSqft / totalRows;
+                // Calculate averages
+                const avgPrice = totalPrice / totalVisibleRows;
+                const avgSqft = totalSqft / totalVisibleRows;
+                const avgPricePerSqft = totalPrice / totalSqft; // Calculate directly instead of averaging the per-row values
                 
-                console.log(`Calculated stats: Avg Price=$${avgPrice}, Avg SqFt=${avgSqft}, Avg Price/SqFt=$${avgPricePerSqft}`);
+                console.log(`Calculated stats: Avg Price=$${avgPrice}, Avg SqFt=${avgSqft}, Direct Price/SqFt=$${avgPricePerSqft}`);
                 
                 $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
                 $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
-                $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {maximumFractionDigits: 2}));
+                $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
                 
                 console.log('Stats updated successfully');
             } else {
@@ -669,8 +680,8 @@ $(document).ready(function() {
                 return;
             }
             
-            const filteredRows = table.rows({search: 'applied'}).count();
-            const totalRows = table.rows().count();
+            const filteredRows = table.rows({search: 'applied'}).data().length;
+            const totalRows = table.rows().data().length;
             $('#entryCountInfo').text(`Showing ${filteredRows} of ${totalRows} entries`);
         } catch (e) {
             console.error("Error updating entry count:", e);
@@ -757,19 +768,48 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 8'); // Increment each time there's a change
+                console.log('version 10'); // Increment each time there's a change
                 
-                // Remove all the debug logging code but keep the version
+                // Debug the first row to see original date format
+                if (results.data.length > 0) {
+                    console.log('First row date format:', results.data[0]['Sale Date']);
+                }
+                
                 const data = results.data.filter(row => row && row['Property Class']);
                 
                 const formattedData = data.map(row => {
                     try {
-                        // Simply pass through the values without special filtering
+                        // Format the date properly if it exists
+                        let formattedDate = row['Sale Date'] || '';
+                        
+                        // If we have a date, attempt to format it
+                        if (formattedDate) {
+                            try {
+                                // Try to parse the date (handle various formats)
+                                const dateParts = formattedDate.split('/');
+                                if (dateParts.length === 3) {
+                                    // Format is likely MM/DD/YYYY
+                                    const month = dateParts[0].padStart(2, '0');
+                                    const day = dateParts[1].padStart(2, '0');
+                                    let year = dateParts[2];
+                                    
+                                    // Make sure year is 4 digits
+                                    if (year.length === 2) {
+                                        year = '20' + year; // Assume 20xx for 2-digit years
+                                    }
+                                    
+                                    formattedDate = `${month}/${day}/${year}`;
+                                }
+                            } catch (e) {
+                                console.warn("Error formatting date:", formattedDate, e);
+                            }
+                        }
+                        
                         return [
                             row['Tax ID Number'] || '',
                             row['Property Class'] || '',
                             row['Property Address'] || '',
-                            row['Sale Date'] || '',
+                            formattedDate,
                             row['Sale Price'] || '0',
                             row['SqFt'] || '0',
                             row['Sale Price per SqFt'] || '0',
@@ -794,7 +834,7 @@ $(document).ready(function() {
             },
             error: function(error) {
                 console.error("Error loading CSV:", error);
-                $('#salesTable tbody').html('<tr><td colspan="12" class="text-center">Error loading data</td></tr>');
+                $('#salesTable tbody').html('<tr><td colspan="14" class="text-center">Error loading data</td></tr>');
             }
         });
     }
