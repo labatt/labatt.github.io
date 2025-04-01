@@ -639,7 +639,7 @@ $(document).ready(function() {
                         // Better handling for Price/SqFt
                         let pricePerSqft = 0;
                         if (row['Sale Price per SqFt']) {
-                            // First remove whitespace and ensure only digits and decimal point remain
+                            // First ensure we're working with a string
                             const rawPricePerSqft = String(row['Sale Price per SqFt']).trim();
                             // Remove $ and any commas
                             const cleanPricePerSqft = rawPricePerSqft.replace(/[$,]/g, '');
@@ -658,6 +658,7 @@ $(document).ready(function() {
                         // Parse Time Adjusted Price
                         let priceTimeAdj = 0;
                         if (row['Sale Price Time Adj']) {
+                            // Ensure we're working with a string
                             const rawPriceTimeAdj = String(row['Sale Price Time Adj']).trim();
                             const cleanPriceTimeAdj = rawPriceTimeAdj.replace(/[$,]/g, '');
                             priceTimeAdj = parseFloat(cleanPriceTimeAdj);
@@ -666,6 +667,7 @@ $(document).ready(function() {
                         // Parse Adjusted Price per SF
                         let priceAdjPerSF = 0;
                         if (row['Sale Price Adj per SF']) {
+                            // Ensure we're working with a string
                             const rawPriceAdjPerSF = String(row['Sale Price Adj per SF']).trim();
                             const cleanPriceAdjPerSF = rawPriceAdjPerSF.replace(/[$,]/g, '');
                             priceAdjPerSF = parseFloat(cleanPriceAdjPerSF);
@@ -837,13 +839,22 @@ $(document).ready(function() {
         
         // Add new filter
         $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-            const value = parseFloat(data[columnIndex]) || 0;
-            
-            if ((min === '' || value >= parseFloat(min)) && 
-                (max === '' || value <= parseFloat(max))) {
-                return true;
+            let value;
+            try {
+                // Ensure string-to-number conversion works correctly
+                // Remove any currency symbols and commas
+                const cleanData = String(data[columnIndex]).replace(/[$,]/g, '');
+                value = parseFloat(cleanData) || 0;
+            } catch (e) {
+                console.warn("Error parsing value for filter:", e);
+                value = 0;
             }
-            return false;
+            
+            const minVal = min === '' ? -Infinity : parseFloat(min);
+            const maxVal = max === '' ? Infinity : parseFloat(max);
+            
+            return (isNaN(minVal) || value >= minVal) && 
+                   (isNaN(maxVal) || value <= maxVal);
         });
         
         table.draw();
@@ -863,9 +874,16 @@ $(document).ready(function() {
             
             filteredRows.each(function(rowData) {
                 try {
-                    const price = parseFloat(String(rowData[2]).replace(/[^0-9.-]+/g, '')) || 0;
-                    const sqft = parseFloat(rowData[3]) || 0;
-                    const pricePerSqft = parseFloat(rowData[4]) || 0;
+                    // Ensure proper parsing for numeric values
+                    // Clean the string format of currency symbols and commas
+                    const cleanPrice = String(rowData[2]).replace(/[$,]/g, '');
+                    const price = parseFloat(cleanPrice) || 0;
+                    
+                    const cleanSqft = String(rowData[3]).replace(/[,]/g, '');
+                    const sqft = parseFloat(cleanSqft) || 0;
+                    
+                    const cleanPricePerSqft = String(rowData[4]).replace(/[$,]/g, '');
+                    const pricePerSqft = parseFloat(cleanPricePerSqft) || 0;
                     
                     totalPrice += price;
                     totalSqft += sqft;
@@ -902,10 +920,12 @@ $(document).ready(function() {
             
             try {
                 // Use the time-adjusted price if available
-                if (row['Sale Price Time Adj'] && row['Sale Price Time Adj'].trim() !== '') {
+                if (row['Sale Price Time Adj'] && String(row['Sale Price Time Adj']).trim() !== '') {
+                    // Ensure we're working with a string for the replace operation
                     const cleanTimeAdj = String(row['Sale Price Time Adj']).replace(/[$,]/g, '');
                     price = parseFloat(cleanTimeAdj) || 0;
-                } else if (row['Sale Price'] && row['Sale Price'].trim() !== '') {
+                } else if (row['Sale Price'] && String(row['Sale Price']).trim() !== '') {
+                    // Ensure we're working with a string for the replace operation
                     const cleanPrice = String(row['Sale Price']).replace(/[$,]/g, '');
                     price = parseFloat(cleanPrice) || 0;
                 }
@@ -1006,14 +1026,17 @@ $(document).ready(function() {
                 let pricePerSqft = 0;
                 
                 // Try to use the adjusted price per sqft if available
-                if (row['Sale Price Adj per SF'] && row['Sale Price Adj per SF'].trim() !== '') {
+                if (row['Sale Price Adj per SF'] && String(row['Sale Price Adj per SF']).trim() !== '') {
+                    // Ensure we're working with a string for the replace operation
                     const cleanAdjPerSF = String(row['Sale Price Adj per SF']).replace(/[$,]/g, '');
                     pricePerSqft = parseFloat(cleanAdjPerSF) || 0;
-                } else if (row['Sale Price per SqFt'] && row['Sale Price per SqFt'].trim() !== '') {
+                } else if (row['Sale Price per SqFt'] && String(row['Sale Price per SqFt']).trim() !== '') {
+                    // Ensure we're working with a string for the replace operation
                     const cleanPerSF = String(row['Sale Price per SqFt']).replace(/[$,]/g, '');
                     pricePerSqft = parseFloat(cleanPerSF) || 0;
                 } else {
                     // Calculate manually as a last resort
+                    // Ensure we're working with a string for the replace operation
                     const price = parseFloat(String(row['Sale Price']).replace(/[$,]/g, '')) || 0;
                     const sqft = parseFloat(row['SqFt']) || 1;
                     if (price > 0 && sqft > 0) {
