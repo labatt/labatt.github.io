@@ -2,107 +2,706 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Modern Property Sales Data Table</title>
+    <title>Real Estate Market Analysis</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/2.0.5/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/select/2.0.0/css/select.bootstrap5.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.5/js/dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.5/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body { padding: 20px; font-family: 'Roboto', sans-serif; background-color: #f4f7fa; }
-        .filter-section { margin-bottom: 20px; }
-        table.dataTable thead th { background-color: #007bff; color: white; }
-        .table-striped > tbody > tr:nth-of-type(odd) { background-color: rgba(0,123,255,.05); }
-        .table-striped > tbody > tr:hover { background-color: rgba(0,123,255,.2); }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h2 { font-weight: 700; }
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #6c757d;
+            --success-color: #2ecc71;
+            --info-color: #3498db;
+            --warning-color: #f39c12;
+            --accent-color: #7209b7;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --light-text: #6c757d;
+            --table-header-bg: #4361ee;
+            --table-header-color: white;
+            --table-row-hover: rgba(67, 97, 238, 0.1);
+            --table-stripe: rgba(67, 97, 238, 0.05);
+            --border-radius: 12px;
+            --box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 0;
+            margin: 0;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            padding: 2.5rem 0;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .header h1 {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem 2rem;
+        }
+        
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            border: none;
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            background: var(--card-bg);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .card-header h2 {
+            font-weight: 600;
+            font-size: 1.25rem;
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .card-header .card-icon {
+            background: var(--primary-color);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        .filter-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .filter-toggle {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-toggle:hover {
+            background: #3651d1;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(67, 97, 238, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(67, 97, 238, 0.1);
+            margin-bottom: 1rem;
+        }
+        
+        .filter-item {
+            flex: 1 1 200px;
+        }
+        
+        .filter-label {
+            font-weight: 500;
+            color: var(--secondary-color);
+            font-size: 0.875rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .filter-input {
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 5px;
+            padding: 0.5rem;
+            width: 100%;
+            font-size: 0.9rem;
+        }
+        
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
+        }
+        
+        .filter-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        
+        .btn-reset {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 5px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-reset:hover {
+            background: #5a6268;
+        }
+        
+        /* Table styling */
+        table.dataTable {
+            border-radius: 8px;
+            overflow: hidden;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        table.dataTable thead th {
+            background-color: var(--table-header-bg);
+            color: var(--table-header-color);
+            font-weight: 600;
+            padding: 1rem 0.75rem;
+            border: none;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            border-bottom: none;
+            vertical-align: middle;
+        }
+        
+        table.dataTable tbody tr {
+            background-color: var(--card-bg);
+            transition: all 0.3s ease;
+        }
+        
+        table.dataTable.table-striped>tbody>tr:nth-of-type(odd) {
+            background-color: var(--table-stripe);
+        }
+        
+        table.dataTable tbody tr:hover {
+            background-color: var(--table-row-hover);
+        }
+        
+        table.dataTable tbody td {
+            padding: 0.875rem 0.75rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            vertical-align: middle;
+        }
+        
+        .table-stats {
+            background: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-around;
+            margin-top: 1.5rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        
+        .price-cell {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .charts-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .chart-card {
+            flex: 1 1 400px;
+            min-height: 300px;
+        }
+        
+        @media (max-width: 992px) {
+            .dashboard-container {
+                padding: 0 1rem 1rem;
+            }
+            
+            .header {
+                padding: 2rem 0;
+            }
+            
+            .filter-item {
+                flex: 1 1 100%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .table-responsive {
+                overflow-x: auto;
+            }
+            
+            .stat-value {
+                font-size: 1.2rem;
+            }
+            
+            .header h1 {
+                font-size: 1.75rem;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2 class="mb-4 text-center">Property Sales Data</h2>
+<div class="header">
+    <div class="container">
+        <h1>Real Estate Market Analysis</h1>
+        <p>Comprehensive property sales data to inform your real estate decisions</p>
+    </div>
+</div>
 
-    <div class="filter-section row" id="filters"></div>
-
-    <table id="salesTable" class="table table-striped table-bordered">
-        <thead>
-            <tr>
-                <th>Property Class</th>
-                <th>Sale Date</th>
-                <th>Sale Price</th>
-                <th>SqFt</th>
-                <th>Price/SqFt</th>
-                <th>Price Time Adj</th>
-                <th>Style</th>
-                <th>Year Built</th>
-                <th>Acreage</th>
-                <th>Bedrooms</th>
-                <th>Baths</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-        <tfoot>
-            <tr>
-                <td colspan="11" class="text-center">Rows Showing: <span id="rowCount"></span> | Average Sale Price: $<span id="avgPrice"></span></td>
-            </tr>
-        </tfoot>
-    </table>
+<div class="dashboard-container">
+    <div class="card">
+        <div class="card-header">
+            <h2>Property Sales Data</h2>
+            <div class="card-icon">
+                <i class="fas fa-home"></i>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="filter-section" id="filterSection">
+                <button class="filter-toggle" id="toggleFilters">
+                    <i class="fas fa-filter"></i> Show Filters
+                </button>
+                <div class="filter-wrapper" id="filterWrapper" style="display:none;">
+                    <div class="filter-group row" id="filters"></div>
+                    <div class="filter-actions">
+                        <button class="btn-reset" id="resetFilters">Reset Filters</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="salesTable" class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Property Class</th>
+                            <th>Sale Date</th>
+                            <th>Sale Price</th>
+                            <th>SqFt</th>
+                            <th>Price/SqFt</th>
+                            <th>Style</th>
+                            <th>Year Built</th>
+                            <th>Acreage</th>
+                            <th>Bedrooms</th>
+                            <th>Baths</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            
+            <div class="table-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="rowCount">0</div>
+                    <div class="stat-label">Properties</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPrice">0</div>
+                    <div class="stat-label">Avg. Sale Price</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgSqft">0</div>
+                    <div class="stat-label">Avg. Square Footage</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPricePerSqft">0</div>
+                    <div class="stat-label">Avg. Price/SqFt</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="charts-row">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h2>Price Distribution by Property Style</h2>
+                <div class="card-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="styleChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="card chart-card">
+            <div class="card-header">
+                <h2>Price per SqFt by Year Built</h2>
+                <div class="card-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="yearBuiltChart"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
 $(document).ready(function() {
+    // Toggle filter section
+    $('#toggleFilters').on('click', function() {
+        $('#filterWrapper').slideToggle(300);
+        const icon = $(this).find('i');
+        const text = $(this).text().trim();
+        
+        if (text === 'Show Filters') {
+            $(this).html('<i class="fas fa-times"></i> Hide Filters');
+        } else {
+            $(this).html('<i class="fas fa-filter"></i> Show Filters');
+        }
+    });
+    
+    // Initialize DataTable with fewer visible columns
     const table = $('#salesTable').DataTable({
-        dom: 'lrtip',
+        dom: 'lrtip',  // Hide default search box
+        pageLength: 15,
         columns: [
-            { title: "Property Class" }, { title: "Sale Date" }, { title: "Sale Price" }, { title: "SqFt" },
-            { title: "Price/SqFt" }, { title: "Price Time Adj" }, { title: "Style" },
-            { title: "Year Built" }, { title: "Acreage" }, { title: "Bedrooms" }, { title: "Baths" }
-        ]
+            { title: "Property Class" }, 
+            { title: "Sale Date" }, 
+            { title: "Sale Price", render: function(data) {
+                return '<span class="price-cell">$' + data + '</span>';
+            }}, 
+            { title: "SqFt" },
+            { title: "Price/SqFt" }, 
+            { title: "Style" },
+            { title: "Year Built" }, 
+            { title: "Acreage" }, 
+            { title: "Bedrooms" }, 
+            { title: "Baths" }
+        ],
+        columnDefs: [
+            { className: "text-center", targets: [3, 6, 7, 8, 9] }
+        ],
+        order: [[2, 'desc']] // Sort by sale price descending by default
     });
 
+    // Load CSV data
     function loadCSVData() {
-        Papa.parse("https://labatt.github.io/sales_data.csv", {
+        Papa.parse("sales_data.csv", {
             download: true,
             header: true,
             complete: function(results) {
                 const data = results.data.filter(row => row['Property Class']);
                 const formattedData = data.map(row => ([
-                    row['Property Class'], row['Sale Date'], row['Sale Price'], row['SqFt'],
-                    row['Sale Price per SqFt'], row['Sale Price Time Adj'], row['Style'],
-                    row['Year Built'], row['Acreage'], row['Bedrooms'], row['Baths']
+                    row['Property Class'],
+                    row['Sale Date'],
+                    row['Sale Price'].replace(/[^0-9]/g, ''),
+                    row['SqFt'],
+                    row['Sale Price per SqFt'].replace(/[^0-9.]/g, ''),
+                    row['Style'],
+                    row['Year Built'],
+                    row['Acreage'],
+                    row['Bedrooms'],
+                    row['Baths']
                 ]));
 
                 table.rows.add(formattedData).draw();
                 createFilters();
-                updateFooter();
+                updateStats();
+                createCharts(data);
             }
         });
     }
 
+    // Create filter inputs
     function createFilters() {
         $('#filters').empty();
-        $('#salesTable thead th').each(function(i) {
-            const title = $(this).text();
-            const input = $('<div class="col-md-2"><label>' + title + '</label></div>').appendTo('#filters');
-            $('<input class="form-control" placeholder="Search ' + title + '">').appendTo(input).on('keyup change', function() {
-                table.column(i).search(this.value).draw();
-                updateFooter();
+        
+        const filterColumns = [
+            { index: 0, name: 'Property Class' },
+            { index: 5, name: 'Style' },
+            { index: 8, name: 'Bedrooms' },
+            { index: 9, name: 'Baths' },
+            { index: 6, name: 'Year Built' }
+        ];
+        
+        filterColumns.forEach(column => {
+            const filterItem = $('<div class="filter-item"></div>').appendTo('#filters');
+            $('<div class="filter-label">' + column.name + '</div>').appendTo(filterItem);
+            $('<input type="text" class="filter-input" placeholder="Filter ' + column.name + '">').appendTo(filterItem).on('keyup change', function() {
+                table.column(column.index).search(this.value).draw();
+                updateStats();
             });
+        });
+        
+        // Add price range filter
+        const priceFilter = $('<div class="filter-item"></div>').appendTo('#filters');
+        $('<div class="filter-label">Price Range</div>').appendTo(priceFilter);
+        const priceInputGroup = $('<div style="display:flex;gap:8px;"></div>').appendTo(priceFilter);
+        $('<input type="number" class="filter-input" id="minPrice" placeholder="Min">').appendTo(priceInputGroup);
+        $('<input type="number" class="filter-input" id="maxPrice" placeholder="Max">').appendTo(priceInputGroup);
+        
+        // Apply price range filter
+        $('#minPrice, #maxPrice').on('change', function() {
+            const min = $('#minPrice').val();
+            const max = $('#maxPrice').val();
+            
+            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                const price = parseFloat(data[2].replace(/[^0-9.-]+/g, '')) || 0;
+                
+                if ((min === '' || price >= min) && (max === '' || price <= max)) {
+                    return true;
+                }
+                return false;
+            });
+            
+            table.draw();
+            updateStats();
+            
+            // Clear the custom filter
+            $.fn.dataTable.ext.search.pop();
+        });
+        
+        // Reset filters button
+        $('#resetFilters').on('click', function() {
+            $('.filter-input').val('');
+            table.search('').columns().search('').draw();
+            updateStats();
         });
     }
 
-    function updateFooter() {
-        const totalRows = table.rows({search:'applied'}).count();
+    // Update statistics in footer
+    function updateStats() {
+        const filteredRows = table.rows({search:'applied'}).data();
+        const totalRows = filteredRows.count();
         $('#rowCount').text(totalRows);
-        const prices = table.column(2, {search:'applied'}).data().toArray().map(Number);
-        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-        $('#avgPrice').text(avgPrice.toFixed(2));
+        
+        let totalPrice = 0;
+        let totalSqft = 0;
+        let totalPricePerSqft = 0;
+        
+        filteredRows.each(function(rowData) {
+            const price = parseFloat(rowData[2].replace(/[^0-9.-]+/g, '')) || 0;
+            const sqft = parseFloat(rowData[3]) || 0;
+            const pricePerSqft = parseFloat(rowData[4]) || 0;
+            
+            totalPrice += price;
+            totalSqft += sqft;
+            totalPricePerSqft += pricePerSqft;
+        });
+        
+        const avgPrice = totalPrice / (totalRows || 1);
+        const avgSqft = totalSqft / (totalRows || 1);
+        const avgPricePerSqft = totalPricePerSqft / (totalRows || 1);
+        
+        $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
+        $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
+        $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {maximumFractionDigits: 2}));
+    }
+    
+    // Create charts
+    function createCharts(data) {
+        // Group data by style
+        const styleGroups = {};
+        data.forEach(row => {
+            const style = row['Style'];
+            const price = parseFloat(row['Sale Price'].replace(/[^0-9]/g, '')) || 0;
+            
+            if (!styleGroups[style]) {
+                styleGroups[style] = [];
+            }
+            
+            styleGroups[style].push(price);
+        });
+        
+        // Calculate average price by style
+        const styles = [];
+        const avgPrices = [];
+        const bgColors = [
+            '#4361ee', '#3a0ca3', '#7209b7', '#f72585', '#4cc9f0', 
+            '#4895ef', '#560bad', '#480ca8', '#b5179e', '#ff99c8'
+        ];
+        
+        Object.keys(styleGroups).forEach((style, index) => {
+            const prices = styleGroups[style];
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            
+            styles.push(style);
+            avgPrices.push(avgPrice);
+        });
+        
+        // Create style chart
+        const styleCtx = document.getElementById('styleChart').getContext('2d');
+        new Chart(styleCtx, {
+            type: 'bar',
+            data: {
+                labels: styles,
+                datasets: [{
+                    label: 'Average Price ($)',
+                    data: avgPrices,
+                    backgroundColor: bgColors.slice(0, styles.length),
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '$ ' + context.raw.toLocaleString('en-US', {maximumFractionDigits: 0});
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('en-US', {
+                                    notation: 'compact',
+                                    compactDisplay: 'short'
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Group data by decade for year built chart
+        const yearData = {};
+        data.forEach(row => {
+            const year = parseInt(row['Year Built']);
+            if (!year) return;
+            
+            const decade = Math.floor(year / 10) * 10;
+            const pricePerSqft = parseFloat(row['Sale Price per SqFt'].replace(/[^0-9.]/g, '')) || 0;
+            
+            if (!yearData[decade]) {
+                yearData[decade] = [];
+            }
+            
+            yearData[decade].push(pricePerSqft);
+        });
+        
+        // Calculate average price per sqft by decade
+        const decades = [];
+        const avgPricePerSqft = [];
+        
+        Object.keys(yearData).sort().forEach(decade => {
+            const prices = yearData[decade];
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            
+            decades.push(decade + 's');
+            avgPricePerSqft.push(avgPrice);
+        });
+        
+        // Create year built chart
+        const yearCtx = document.getElementById('yearBuiltChart').getContext('2d');
+        new Chart(yearCtx, {
+            type: 'line',
+            data: {
+                labels: decades,
+                datasets: [{
+                    label: 'Avg Price per SqFt ($)',
+                    data: avgPricePerSqft,
+                    borderColor: '#4361ee',
+                    backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#7209b7',
+                    pointRadius: 5,
+                    fill: true,
+                    tension: 0.2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '$ ' + context.raw.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(0);
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     loadCSVData();
