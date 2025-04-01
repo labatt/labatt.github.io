@@ -745,6 +745,9 @@
                 </div>
                 <div class="d-flex justify-content-between align-items-center my-3">
                     <div id="entryCountInfo" class="text-secondary">Showing 0 entries</div>
+                    <button id="printableViewBtn" class="btn-print">
+                        <i class="fas fa-print"></i> Printable Table View
+                    </button>
                 </div>
             </div>
             
@@ -790,13 +793,6 @@
                     <div class="stat-value" id="avgPricePerSqft-bottom">0</div>
                     <div class="stat-label">Avg. Price/SqFt</div>
                 </div>
-            </div>
-            
-            <!-- Printable View Button -->
-            <div class="text-center mt-4">
-                <button id="printableViewBtn" class="btn-print">
-                    <i class="fas fa-print"></i> Printable Table View
-                </button>
             </div>
         </div>
     </div>
@@ -1023,7 +1019,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 16'); // Increment each time there's a change
+                console.log('version 17'); // Increment each time there's a change
                 
                 const data = results.data.filter(row => row && row['Property Class']);
                 
