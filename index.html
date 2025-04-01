@@ -194,6 +194,34 @@
             padding-right: 0.5rem;
         }
         
+        /* Styling for checkbox container */
+        .checkbox-container {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 0.5rem;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 5px;
+            background-color: white;
+        }
+        
+        /* Styling for form-check */
+        .form-check {
+            padding-left: 1.8rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        
+        .form-check-input {
+            position: absolute;
+            margin-top: 0.25rem;
+            margin-left: -1.5rem;
+        }
+        
+        .form-check-label {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+        
         /* Styling for select controls */
         .select-controls {
             margin-top: 0.5rem;
@@ -540,27 +568,21 @@ $(document).ready(function() {
             { title: "Property Class" }, 
             { title: "Sale Date" }, 
             { title: "Sale Price", render: function(data) {
-                return '<span class="price-cell">$' + data + '</span>';
+                return '<span class="price-cell">$' + parseInt(data).toLocaleString('en-US') + '</span>';
             }}, 
             { title: "SqFt" },
             { title: "Price/SqFt", render: function(data) {
                 // Handle NaN values
                 const value = parseFloat(data);
-                return isNaN(value) ? '$0.00' : '$' + value.toFixed(2);
+                return isNaN(value) || value === 0 ? '$0.00' : '$' + value.toFixed(2);
             }}, 
             { title: "Price Time Adj", render: function(data) {
-                if (!data) return '';
-                // Format as currency
-                const cleanValue = String(data).replace(/[^\d.]/g, '');
-                const value = parseFloat(cleanValue);
-                return isNaN(value) ? '' : '$' + value.toLocaleString('en-US', {maximumFractionDigits: 2});
+                const value = parseFloat(data);
+                return isNaN(value) || value === 0 ? '$0.00' : '$' + value.toLocaleString('en-US', {maximumFractionDigits: 2});
             }},
             { title: "Price Adj/SqFt", render: function(data) {
-                if (!data) return '';
-                // Format as currency
-                const cleanValue = String(data).replace(/[^\d.]/g, '');
-                const value = parseFloat(cleanValue);
-                return isNaN(value) ? '$0.00' : '$' + value.toFixed(2);
+                const value = parseFloat(data);
+                return isNaN(value) || value === 0 ? '$0.00' : '$' + value.toFixed(2);
             }},
             { title: "Style" },
             { title: "Year Built" }, 
@@ -610,20 +632,20 @@ $(document).ready(function() {
                 const data = results.data.filter(row => row && row['Property Class']);
                 
                 const formattedData = data.map(row => {
-                    // Use safe type conversions with fallback values
-                    const salePrice = row['Sale Price'] ? String(row['Sale Price']).replace(/[^0-9]/g, '') : '0';
-                    
-                    // Better handling for Price/SqFt
-                    let pricePerSqft = 0;
                     try {
+                        // Use safe type conversions with fallback values
+                        const salePrice = row['Sale Price'] ? String(row['Sale Price']).replace(/[^0-9]/g, '') : '0';
+                        
+                        // Better handling for Price/SqFt
+                        let pricePerSqft = 0;
                         if (row['Sale Price per SqFt']) {
-                            // Extract the numeric part
-                            const rawValue = String(row['Sale Price per SqFt']).trim();
-                            // Keep only numbers and decimal points
-                            const numericString = rawValue.replace(/[^\d.]/g, '');
-                            pricePerSqft = parseFloat(numericString);
+                            // First remove whitespace and ensure only digits and decimal point remain
+                            const rawPricePerSqft = String(row['Sale Price per SqFt']).trim();
+                            // Remove $ and any commas
+                            const cleanPricePerSqft = rawPricePerSqft.replace(/[$,]/g, '');
+                            pricePerSqft = parseFloat(cleanPricePerSqft);
                             
-                            // Calculate manually if value is still NaN or 0
+                            // If parsing failed, try to calculate manually
                             if (isNaN(pricePerSqft) || pricePerSqft === 0) {
                                 const price = parseFloat(salePrice) || 0;
                                 const sqft = parseFloat(row['SqFt']) || 1; // Avoid division by zero
@@ -632,36 +654,41 @@ $(document).ready(function() {
                                 }
                             }
                         }
-                    } catch (e) {
-                        console.warn("Error parsing Price/SqFt:", e, row['Sale Price per SqFt']);
-                        // Try to calculate from sale price and square footage
-                        const price = parseFloat(salePrice) || 0;
-                        const sqft = parseFloat(row['SqFt']) || 1; // Avoid division by zero
-                        if (price > 0 && sqft > 0) {
-                            pricePerSqft = price / sqft;
+                        
+                        // Parse Time Adjusted Price
+                        let priceTimeAdj = 0;
+                        if (row['Sale Price Time Adj']) {
+                            const rawPriceTimeAdj = String(row['Sale Price Time Adj']).trim();
+                            const cleanPriceTimeAdj = rawPriceTimeAdj.replace(/[$,]/g, '');
+                            priceTimeAdj = parseFloat(cleanPriceTimeAdj);
                         }
+                        
+                        // Parse Adjusted Price per SF
+                        let priceAdjPerSF = 0;
+                        if (row['Sale Price Adj per SF']) {
+                            const rawPriceAdjPerSF = String(row['Sale Price Adj per SF']).trim();
+                            const cleanPriceAdjPerSF = rawPriceAdjPerSF.replace(/[$,]/g, '');
+                            priceAdjPerSF = parseFloat(cleanPriceAdjPerSF);
+                        }
+                        
+                        return [
+                            row['Property Class'] || '',
+                            row['Sale Date'] || '',
+                            salePrice,
+                            row['SqFt'] || '0',
+                            pricePerSqft.toString(),
+                            priceTimeAdj.toString(),
+                            priceAdjPerSF.toString(),
+                            row['Style'] || '',
+                            row['Year Built'] || '',
+                            row['Acreage'] || '0',
+                            row['Bedrooms'] || '0',
+                            row['Baths'] || '0'
+                        ];
+                    } catch (e) {
+                        console.error("Error processing row:", e, row);
+                        return ['', '', '0', '0', '0', '0', '0', '', '', '0', '0', '0'];
                     }
-                    
-                    // Format the time adjusted price
-                    let priceTimeAdj = row['Sale Price Time Adj'] || '';
-                    
-                    // Format the adjusted price per square foot
-                    let priceAdjPerSF = row['Sale Price Adj per SF'] || '';
-                    
-                    return [
-                        row['Property Class'] || '',
-                        row['Sale Date'] || '',
-                        salePrice,
-                        row['SqFt'] || '0',
-                        pricePerSqft.toString(),
-                        priceTimeAdj,
-                        priceAdjPerSF,
-                        row['Style'] || '',
-                        row['Year Built'] || '',
-                        row['Acreage'] || '0',
-                        row['Bedrooms'] || '0',
-                        row['Baths'] || '0'
-                    ];
                 });
 
                 table.rows.add(formattedData).draw();
@@ -680,20 +707,20 @@ $(document).ready(function() {
     function createFilters() {
         $('#filters').empty();
         
-        // Get unique values for each filter column
-        const filterValues = {};
+        // Define filters with correct column indexes
         const filterColumns = [
-            { index: 0, name: 'Property Class', type: 'multi-select' },
-            { index: 5, name: 'Style', type: 'multi-select' },
-            { index: 8, name: 'Bedrooms', type: 'multi-select' },
-            { index: 9, name: 'Baths', type: 'multi-select' },
-            { index: 6, name: 'Year Built', type: 'range' },
-            { index: 7, name: 'Acreage', type: 'range' }
+            { index: 0, name: 'Property Class', type: 'checkbox' },
+            { index: 7, name: 'Style', type: 'checkbox' },
+            { index: 10, name: 'Bedrooms', type: 'checkbox' },
+            { index: 11, name: 'Baths', type: 'checkbox' },
+            { index: 8, name: 'Year Built', type: 'range' },
+            { index: 9, name: 'Acreage', type: 'range' }
         ];
         
-        // Extract unique values from table data
+        // Get unique values for each filter column
+        const filterValues = {};
         filterColumns.forEach(column => {
-            if (column.type === 'multi-select') {
+            if (column.type === 'checkbox') {
                 const uniqueValues = new Set();
                 table.column(column.index).data().each(function(value) {
                     if (value && String(value).trim() !== '') {
@@ -709,47 +736,52 @@ $(document).ready(function() {
             const filterItem = $('<div class="filter-item"></div>').appendTo('#filters');
             $('<div class="filter-label">' + column.name + '</div>').appendTo(filterItem);
             
-            if (column.type === 'multi-select') {
-                // Create multiselect dropdown
-                const selectId = 'filter-' + column.name.toLowerCase().replace(/\s+/g, '-');
-                const select = $('<select class="form-select filter-input" id="' + selectId + '" multiple>');
+            if (column.type === 'checkbox') {
+                // Create container for checkboxes
+                const checkboxContainer = $('<div class="checkbox-container"></div>').appendTo(filterItem);
                 
-                // Add options from data
+                // Add checkboxes from data
                 filterValues[column.name].forEach(value => {
                     if (value) {
-                        $('<option value="' + value + '">' + value + '</option>').appendTo(select);
+                        const checkboxId = 'chk-' + column.name.toLowerCase().replace(/\s+/g, '-') + '-' + value.replace(/\s+/g, '-').toLowerCase();
+                        const checkboxItem = $('<div class="form-check"></div>').appendTo(checkboxContainer);
+                        
+                        const checkbox = $('<input class="form-check-input" type="checkbox" id="' + checkboxId + '" value="' + value + '">');
+                        const label = $('<label class="form-check-label" for="' + checkboxId + '">' + value + '</label>');
+                        
+                        checkboxItem.append(checkbox).append(label);
+                        
+                        checkbox.on('change', function() {
+                            // Get all checked values for this filter
+                            const selectedValues = [];
+                            checkboxContainer.find('input:checked').each(function() {
+                                selectedValues.push($(this).val());
+                            });
+                            
+                            if (selectedValues.length === 0) {
+                                // If nothing selected, clear filter
+                                table.column(column.index).search('').draw();
+                            } else {
+                                // Build regex for OR search
+                                const regexPattern = selectedValues.map(val => '^' + $.fn.dataTable.util.escapeRegex(val) + '$').join('|');
+                                table.column(column.index).search(regexPattern, true, false).draw();
+                            }
+                            updateStats();
+                        });
                     }
                 });
                 
-                select.appendTo(filterItem);
-                
-                // Initialize the multiselect
-                select.on('change', function() {
-                    const selectedValues = $(this).val() || [];
-                    if (selectedValues.length === 0) {
-                        // If nothing selected, clear filter
-                        table.column(column.index).search('').draw();
-                    } else {
-                        // Build regex for OR search
-                        const regexPattern = selectedValues.map(val => '^' + $.fn.dataTable.util.escapeRegex(val) + '$').join('|');
-                        table.column(column.index).search(regexPattern, true, false).draw();
-                    }
-                    updateStats();
-                });
-                
-                // Add Select All button
+                // Add Select All / Clear All buttons
                 const controlsDiv = $('<div class="d-flex justify-content-between mt-1 select-controls"></div>').appendTo(filterItem);
                 const selectAllBtn = $('<button class="btn btn-sm btn-outline-primary">Select All</button>').appendTo(controlsDiv);
                 const clearBtn = $('<button class="btn btn-sm btn-outline-secondary">Clear</button>').appendTo(controlsDiv);
                 
                 selectAllBtn.on('click', function() {
-                    $('#' + selectId + ' option').prop('selected', true);
-                    $('#' + selectId).trigger('change');
+                    checkboxContainer.find('input[type="checkbox"]').prop('checked', true).trigger('change');
                 });
                 
                 clearBtn.on('click', function() {
-                    $('#' + selectId + ' option').prop('selected', false);
-                    $('#' + selectId).trigger('change');
+                    checkboxContainer.find('input[type="checkbox"]').prop('checked', false).trigger('change');
                 });
                 
             } else if (column.type === 'range') {
@@ -784,8 +816,8 @@ $(document).ready(function() {
         $('#resetFilters').on('click', function() {
             // Clear all inputs
             $('.filter-input').val('');
-            // Clear all multiselects
-            $('select.filter-input option').prop('selected', false);
+            // Clear all checkboxes
+            $('input[type="checkbox"]').prop('checked', false);
             // Reset the table search
             table.search('').columns().search('').draw();
             // Clear any custom filters
@@ -869,8 +901,16 @@ $(document).ready(function() {
             let price = 0;
             
             try {
-                price = row['Sale Price'] ? parseFloat(String(row['Sale Price']).replace(/[^0-9]/g, '')) : 0;
+                // Use the time-adjusted price if available
+                if (row['Sale Price Time Adj'] && row['Sale Price Time Adj'].trim() !== '') {
+                    const cleanTimeAdj = String(row['Sale Price Time Adj']).replace(/[$,]/g, '');
+                    price = parseFloat(cleanTimeAdj) || 0;
+                } else if (row['Sale Price'] && row['Sale Price'].trim() !== '') {
+                    const cleanPrice = String(row['Sale Price']).replace(/[$,]/g, '');
+                    price = parseFloat(cleanPrice) || 0;
+                }
             } catch (e) {
+                console.warn("Error parsing price for chart:", e);
                 price = 0;
             }
             
@@ -891,10 +931,11 @@ $(document).ready(function() {
         
         Object.keys(styleGroups).forEach((style, index) => {
             const prices = styleGroups[style];
-            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-            
-            styles.push(style);
-            avgPrices.push(avgPrice);
+            if (prices.length > 0) {
+                const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+                styles.push(style);
+                avgPrices.push(avgPrice);
+            }
         });
         
         // Create style chart
@@ -914,6 +955,17 @@ $(document).ready(function() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
+                    title: {
+                        display: true,
+                        text: 'Using Time-Adjusted Prices Where Available',
+                        font: {
+                            size: 12,
+                            style: 'italic'
+                        },
+                        padding: {
+                            bottom: 10
+                        }
+                    },
                     legend: {
                         display: false
                     },
@@ -953,15 +1005,29 @@ $(document).ready(function() {
                 const decade = Math.floor(year / 10) * 10;
                 let pricePerSqft = 0;
                 
-                if (row['Sale Price per SqFt']) {
-                    pricePerSqft = parseFloat(String(row['Sale Price per SqFt']).replace(/[^0-9.]/g, '')) || 0;
+                // Try to use the adjusted price per sqft if available
+                if (row['Sale Price Adj per SF'] && row['Sale Price Adj per SF'].trim() !== '') {
+                    const cleanAdjPerSF = String(row['Sale Price Adj per SF']).replace(/[$,]/g, '');
+                    pricePerSqft = parseFloat(cleanAdjPerSF) || 0;
+                } else if (row['Sale Price per SqFt'] && row['Sale Price per SqFt'].trim() !== '') {
+                    const cleanPerSF = String(row['Sale Price per SqFt']).replace(/[$,]/g, '');
+                    pricePerSqft = parseFloat(cleanPerSF) || 0;
+                } else {
+                    // Calculate manually as a last resort
+                    const price = parseFloat(String(row['Sale Price']).replace(/[$,]/g, '')) || 0;
+                    const sqft = parseFloat(row['SqFt']) || 1;
+                    if (price > 0 && sqft > 0) {
+                        pricePerSqft = price / sqft;
+                    }
                 }
                 
                 if (!yearData[decade]) {
                     yearData[decade] = [];
                 }
                 
-                yearData[decade].push(pricePerSqft);
+                if (pricePerSqft > 0) {
+                    yearData[decade].push(pricePerSqft);
+                }
             } catch (e) {
                 console.error("Error parsing year data:", e);
             }
@@ -973,10 +1039,11 @@ $(document).ready(function() {
         
         Object.keys(yearData).sort().forEach(decade => {
             const prices = yearData[decade];
-            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-            
-            decades.push(decade + 's');
-            avgPricePerSqft.push(avgPrice);
+            if (prices && prices.length > 0) {
+                const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+                decades.push(decade + 's');
+                avgPricePerSqft.push(avgPrice);
+            }
         });
         
         // Create year built chart
@@ -1001,6 +1068,18 @@ $(document).ready(function() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
+                    title: {
+                        display: true,
+                        text: 'Using Time-Adjusted Prices Where Available',
+                        position: 'bottom',
+                        font: {
+                            size: 12,
+                            style: 'italic'
+                        },
+                        padding: {
+                            top: 10
+                        }
+                    },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
