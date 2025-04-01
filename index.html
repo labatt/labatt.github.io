@@ -536,6 +536,19 @@
             padding: 0.4rem 1rem;
             font-size: 0.9rem;
         }
+        
+        /* Style for address links */
+        .address-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .address-link:hover {
+            text-decoration: underline;
+            color: var(--accent-color);
+        }
     </style>
 </head>
 <body>
@@ -672,7 +685,6 @@ $(document).ready(function() {
             const visibleRows = table.rows({search: 'applied'}).data();
             const totalVisibleRows = visibleRows.length;
             
-            console.log(`Updating stats with ${totalVisibleRows} visible rows`);
             $('#rowCount').text(totalVisibleRows);
             
             let totalPrice = 0;
@@ -707,11 +719,6 @@ $(document).ready(function() {
                         const sqft = parseFloat(sqftRaw) || 0;
                         const pricePerSqft = parseFloat(pricePerSqftRaw) || 0;
                         
-                        // Debug first 5 rows
-                        if (i < 5) {
-                            console.log(`Row ${i}: Price=${priceRaw}->${price}, SqFt=${sqftRaw}->${sqft}, Price/SqFt=${pricePerSqftRaw}->${pricePerSqft}`);
-                        }
-                        
                         totalPrice += price;
                         totalSqft += sqft;
                         totalPricePerSqft += pricePerSqft;
@@ -725,19 +732,14 @@ $(document).ready(function() {
                 const avgSqft = totalSqft / totalVisibleRows;
                 const avgPricePerSqft = totalPrice / totalSqft; // Calculate directly instead of averaging the per-row values
                 
-                console.log(`Calculated stats: Avg Price=$${avgPrice}, Avg SqFt=${avgSqft}, Direct Price/SqFt=$${avgPricePerSqft}`);
-                
                 $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
                 $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
                 $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-                
-                console.log('Stats updated successfully');
             } else {
                 // No rows match the filter
                 $('#avgPrice').text('$0');
                 $('#avgSqft').text('0');
                 $('#avgPricePerSqft').text('$0.00');
-                console.log('No rows match filter, stats reset to zero');
             }
         } catch (e) {
             console.error("Error updating stats:", e);
@@ -772,7 +774,12 @@ $(document).ready(function() {
         columns: [
             { title: "Tax ID Number" },
             { title: "Property Class" }, 
-            { title: "Property Address" },
+            { title: "Property Address", render: function(data) {
+                if (!data) return '';
+                const address = encodeURIComponent(data + ', East Greenbush, NY 12061');
+                const mapUrl = `https://www.google.com/maps/search/?api=1&query=${address}`;
+                return `<a href="${mapUrl}" target="_blank" class="address-link">${data}</a>`;
+            }},
             { title: "Sale Date" }, 
             { title: "Sale Price", render: function(data) {
                 const value = parseFloat(data);
@@ -858,12 +865,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 11'); // Increment each time there's a change
-                
-                // Debug the first row to see original date format
-                if (results.data.length > 0) {
-                    console.log('First row date format:', results.data[0]['Sale Date']);
-                }
+                console.log('version 13'); // Increment each time there's a change
                 
                 const data = results.data.filter(row => row && row['Property Class']);
                 
@@ -1072,8 +1074,6 @@ $(document).ready(function() {
         const min = $('#' + minId).val();
         const max = $('#' + maxId).val();
         
-        console.log(`Applying range filter for column ${columnIndex}, min: ${min}, max: ${max}`);
-        
         // Store filter settings for this column
         if (!table.settings()[0].customFilters) {
             table.settings()[0].customFilters = {};
@@ -1090,8 +1090,6 @@ $(document).ready(function() {
                 max: max === '' ? Infinity : parseFloat(max)
             };
         }
-        
-        console.log('Custom filters:', table.settings()[0].customFilters);
         
         // Clear all current ext.search filters and add a single combined filter
         while ($.fn.dataTable.ext.search.length > 0) {
@@ -1118,11 +1116,6 @@ $(document).ready(function() {
                             rawValue = rawValue.replace(/[$,]/g, '');
                         }
                         value = parseFloat(rawValue) || 0;
-                        
-                        // For debugging SqFt filter issues
-                        if (colIndex === 5 && dataIndex < 5) {
-                            console.log(`Row ${dataIndex}, SqFt: "${data[colIndex]}" -> ${value}, range: ${filterSettings.min} to ${filterSettings.max}, matches: ${value >= filterSettings.min && value <= filterSettings.max}`);
-                        }
                     } catch (e) {
                         console.warn(`Error parsing value for column ${colIndex}:`, e);
                         value = 0;
