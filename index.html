@@ -549,6 +549,44 @@
             text-decoration: underline;
             color: var(--accent-color);
         }
+        
+        /* Styles for map and realtor icons */
+        .address-actions {
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        
+        .map-icon, .realtor-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            margin-left: 4px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        
+        .map-icon {
+            background-color: #ea4335; /* Google red */
+            color: white;
+        }
+        
+        .realtor-icon {
+            background-color: #0077e5; /* Realtor blue */
+            color: white;
+        }
+        
+        .map-icon:hover, .realtor-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .map-icon i, .realtor-icon i {
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -776,9 +814,20 @@ $(document).ready(function() {
             { title: "Property Class" }, 
             { title: "Property Address", render: function(data) {
                 if (!data) return '';
-                const address = encodeURIComponent(data + ', East Greenbush, NY 12061');
-                const mapUrl = `https://www.google.com/maps/search/?api=1&query=${address}`;
-                return `<a href="${mapUrl}" target="_blank" class="address-link">${data}</a>`;
+                
+                // Create Google Maps link
+                const addressForMaps = encodeURIComponent(data + ', East Greenbush, NY 12061');
+                const mapUrl = `https://www.google.com/maps/search/?api=1&query=${addressForMaps}`;
+                
+                // Create Realtor.com link
+                const addressForRealtor = encodeURIComponent(data + ', East Greenbush, NY 12061');
+                const realtorUrl = `https://www.realtor.com/realestateandhomes-search/${addressForRealtor}`;
+                
+                // Create icons with links
+                const googleIcon = `<a href="${mapUrl}" target="_blank" class="map-icon" title="View on Google Maps"><i class="fas fa-map-marker-alt"></i></a>`;
+                const realtorIcon = `<a href="${realtorUrl}" target="_blank" class="realtor-icon" title="View on Realtor.com"><i class="fas fa-home"></i></a>`;
+                
+                return `${data} <span class="address-actions">${googleIcon} ${realtorIcon}</span>`;
             }},
             { title: "Sale Date" }, 
             { title: "Sale Price", render: function(data) {
@@ -865,7 +914,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 13'); // Increment each time there's a change
+                console.log('version 14'); // Increment each time there's a change
                 
                 const data = results.data.filter(row => row && row['Property Class']);
                 
