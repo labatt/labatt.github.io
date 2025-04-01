@@ -11,7 +11,6 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.5/js/dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.5/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdn.datatables.net/select/2.0.0/js/dataTables.select.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <style>
@@ -58,7 +57,14 @@
 
 <script>
 $(document).ready(function() {
-    const table = $('#salesTable').DataTable({ dom: 'lrtip' });
+    const table = $('#salesTable').DataTable({
+        dom: 'lrtip',
+        columns: [
+            { title: "Property Class" }, { title: "Sale Date" }, { title: "Sale Price" }, { title: "SqFt" },
+            { title: "Price/SqFt" }, { title: "Price Time Adj" }, { title: "Style" },
+            { title: "Year Built" }, { title: "Acreage" }, { title: "Bedrooms" }, { title: "Baths" }
+        ]
+    });
 
     function loadCSVData() {
         Papa.parse("https://labatt.github.io/sales_data.csv", {
@@ -67,17 +73,9 @@ $(document).ready(function() {
             complete: function(results) {
                 const data = results.data.filter(row => row['Property Class']);
                 const formattedData = data.map(row => ([
-                    row['Property Class'] || '',
-                    row['Sale Date'] || '',
-                    row['Sale Price'] || '',
-                    row['SqFt'] || '',
-                    row['Sale Price per SqFt'] || '',
-                    row['Sale Price Time Adj'] || '',
-                    row['Style'] || '',
-                    row['Year Built'] || '',
-                    row['Acreage'] || '',
-                    row['Bedrooms'] || '',
-                    row['Baths'] || ''
+                    row['Property Class'], row['Sale Date'], row['Sale Price'], row['SqFt'],
+                    row['Sale Price per SqFt'], row['Sale Price Time Adj'], row['Style'],
+                    row['Year Built'], row['Acreage'], row['Bedrooms'], row['Baths']
                 ]));
 
                 table.rows.add(formattedData).draw();
@@ -88,36 +86,22 @@ $(document).ready(function() {
     }
 
     function createFilters() {
+        $('#filters').empty();
         $('#salesTable thead th').each(function(i) {
             const title = $(this).text();
-            const column = table.column(i);
             const input = $('<div class="col-md-2"><label>' + title + '</label></div>').appendTo('#filters');
-
-            if (title.includes('Date')) {
-                $('<input type="date" class="form-control">').appendTo(input).on('change', applyFilters);
-                $('<input type="date" class="form-control mt-1">').appendTo(input).on('change', applyFilters);
-            } else if (title.match(/Price|SqFt|Acreage|Year Built|per SqFt/)) {
-                $('<input type="number" class="form-control" placeholder="Min">').appendTo(input).on('input', applyFilters);
-                $('<input type="number" class="form-control mt-1" placeholder="Max">').appendTo(input).on('input', applyFilters);
-            } else {
-                const select = $('<select class="form-control" multiple></select>').appendTo(input);
-                column.data().unique().sort().each(function(d) {
-                    select.append('<option value="'+d+'">'+d+'</option>');
-                });
-                select.on('change', applyFilters);
-            }
+            $('<input class="form-control" placeholder="Search ' + title + '">').appendTo(input).on('keyup change', function() {
+                table.column(i).search(this.value).draw();
+                updateFooter();
+            });
         });
-    }
-
-    function applyFilters() {
-        table.draw();
-        updateFooter();
     }
 
     function updateFooter() {
         const totalRows = table.rows({search:'applied'}).count();
         $('#rowCount').text(totalRows);
-        const avgPrice = table.column(2, {search:'applied'}).data().reduce((a, b) => parseFloat(a) + parseFloat(b), 0) / totalRows;
+        const prices = table.column(2, {search:'applied'}).data().toArray().map(Number);
+        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
         $('#avgPrice').text(avgPrice.toFixed(2));
     }
 
