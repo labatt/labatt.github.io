@@ -186,6 +186,82 @@
             padding-right: 2rem;
         }
         
+        /* Styling for multi-select dropdowns */
+        select.filter-input[multiple] {
+            height: auto;
+            min-height: 120px;
+            background-image: none;
+            padding-right: 0.5rem;
+        }
+        
+        /* Styling for select controls */
+        .select-controls {
+            margin-top: 0.5rem;
+        }
+        
+        .select-controls button {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-outline-secondary {
+            color: var(--secondary-color);
+            border: 1px solid var(--secondary-color);
+        }
+        
+        .btn-outline-secondary:hover {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        /* Range inputs styling */
+        .form-control {
+            display: block;
+            width: 100%;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--text-color);
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 5px;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-color);
+            outline: 0;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
+        }
+        
+        .d-flex {
+            display: flex;
+        }
+        
+        .gap-2 {
+            gap: 0.5rem;
+        }
+        
+        .mt-1 {
+            margin-top: 0.25rem;
+        }
+        
+        .justify-content-between {
+            justify-content: space-between;
+        }
+        
         .filter-actions {
             display: flex;
             justify-content: flex-end;
@@ -344,8 +420,8 @@
 
 <div class="header">
     <div class="container">
-        <h1>Real Estate Market Analysis</h1>
-        <p>Comprehensive property sales data to inform your real estate decisions</p>
+        <h1>East Greenbush Home Sales</h1>
+        <p>2023-2025</p>
     </div>
 </div>
 
@@ -379,6 +455,8 @@
                             <th>Sale Price</th>
                             <th>SqFt</th>
                             <th>Price/SqFt</th>
+                            <th>Price Time Adj</th>
+                            <th>Price Adj/SqFt</th>
                             <th>Style</th>
                             <th>Year Built</th>
                             <th>Acreage</th>
@@ -470,6 +548,20 @@ $(document).ready(function() {
                 const value = parseFloat(data);
                 return isNaN(value) ? '$0.00' : '$' + value.toFixed(2);
             }}, 
+            { title: "Price Time Adj", render: function(data) {
+                if (!data) return '';
+                // Format as currency
+                const cleanValue = String(data).replace(/[^\d.]/g, '');
+                const value = parseFloat(cleanValue);
+                return isNaN(value) ? '' : '$' + value.toLocaleString('en-US', {maximumFractionDigits: 2});
+            }},
+            { title: "Price Adj/SqFt", render: function(data) {
+                if (!data) return '';
+                // Format as currency
+                const cleanValue = String(data).replace(/[^\d.]/g, '');
+                const value = parseFloat(cleanValue);
+                return isNaN(value) ? '$0.00' : '$' + value.toFixed(2);
+            }},
             { title: "Style" },
             { title: "Year Built" }, 
             { title: "Acreage" }, 
@@ -477,7 +569,7 @@ $(document).ready(function() {
             { title: "Baths" }
         ],
         columnDefs: [
-            { className: "text-center", targets: [3, 6, 7, 8, 9] }
+            { className: "text-center", targets: [3, 8, 9, 10, 11] }
         ],
         order: [[2, 'desc']], // Sort by sale price descending by default
         autoWidth: false,
@@ -521,29 +613,49 @@ $(document).ready(function() {
                     // Use safe type conversions with fallback values
                     const salePrice = row['Sale Price'] ? String(row['Sale Price']).replace(/[^0-9]/g, '') : '0';
                     
-                    // Extract and clean Price/SqFt value
-                    let pricePerSqft = '0';
-                    if (row['Sale Price per SqFt']) {
-                        // First, strip the $ and any non-numeric chars except decimal point
-                        const rawValue = String(row['Sale Price per SqFt']).trim();
-                        const cleanValue = rawValue.replace(/[$,]/g, '');
-                        
-                        // Make sure it's a valid number
-                        const numValue = parseFloat(cleanValue);
-                        pricePerSqft = !isNaN(numValue) ? numValue.toString() : '0';
-                        
-                        // Debug
-                        if (numValue <= 0) {
-                            console.log("Invalid price/sqft value:", rawValue, "→", cleanValue, "→", numValue);
+                    // Better handling for Price/SqFt
+                    let pricePerSqft = 0;
+                    try {
+                        if (row['Sale Price per SqFt']) {
+                            // Extract the numeric part
+                            const rawValue = String(row['Sale Price per SqFt']).trim();
+                            // Keep only numbers and decimal points
+                            const numericString = rawValue.replace(/[^\d.]/g, '');
+                            pricePerSqft = parseFloat(numericString);
+                            
+                            // Calculate manually if value is still NaN or 0
+                            if (isNaN(pricePerSqft) || pricePerSqft === 0) {
+                                const price = parseFloat(salePrice) || 0;
+                                const sqft = parseFloat(row['SqFt']) || 1; // Avoid division by zero
+                                if (price > 0 && sqft > 0) {
+                                    pricePerSqft = price / sqft;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Error parsing Price/SqFt:", e, row['Sale Price per SqFt']);
+                        // Try to calculate from sale price and square footage
+                        const price = parseFloat(salePrice) || 0;
+                        const sqft = parseFloat(row['SqFt']) || 1; // Avoid division by zero
+                        if (price > 0 && sqft > 0) {
+                            pricePerSqft = price / sqft;
                         }
                     }
+                    
+                    // Format the time adjusted price
+                    let priceTimeAdj = row['Sale Price Time Adj'] || '';
+                    
+                    // Format the adjusted price per square foot
+                    let priceAdjPerSF = row['Sale Price Adj per SF'] || '';
                     
                     return [
                         row['Property Class'] || '',
                         row['Sale Date'] || '',
                         salePrice,
                         row['SqFt'] || '0',
-                        pricePerSqft,
+                        pricePerSqft.toString(),
+                        priceTimeAdj,
+                        priceAdjPerSF,
                         row['Style'] || '',
                         row['Year Built'] || '',
                         row['Acreage'] || '0',
@@ -559,7 +671,7 @@ $(document).ready(function() {
             },
             error: function(error) {
                 console.error("Error loading CSV:", error);
-                $('#salesTable tbody').html('<tr><td colspan="10" class="text-center">Error loading data</td></tr>');
+                $('#salesTable tbody').html('<tr><td colspan="12" class="text-center">Error loading data</td></tr>');
             }
         });
     }
@@ -571,84 +683,139 @@ $(document).ready(function() {
         // Get unique values for each filter column
         const filterValues = {};
         const filterColumns = [
-            { index: 0, name: 'Property Class' },
-            { index: 5, name: 'Style' },
-            { index: 8, name: 'Bedrooms' },
-            { index: 9, name: 'Baths' },
-            { index: 6, name: 'Year Built' }
+            { index: 0, name: 'Property Class', type: 'multi-select' },
+            { index: 5, name: 'Style', type: 'multi-select' },
+            { index: 8, name: 'Bedrooms', type: 'multi-select' },
+            { index: 9, name: 'Baths', type: 'multi-select' },
+            { index: 6, name: 'Year Built', type: 'range' },
+            { index: 7, name: 'Acreage', type: 'range' }
         ];
         
         // Extract unique values from table data
         filterColumns.forEach(column => {
-            const uniqueValues = new Set();
-            table.column(column.index).data().each(function(value) {
-                if (value && String(value).trim() !== '') {
-                    uniqueValues.add(String(value).trim());
-                }
-            });
-            filterValues[column.name] = Array.from(uniqueValues).sort();
+            if (column.type === 'multi-select') {
+                const uniqueValues = new Set();
+                table.column(column.index).data().each(function(value) {
+                    if (value && String(value).trim() !== '') {
+                        uniqueValues.add(String(value).trim());
+                    }
+                });
+                filterValues[column.name] = Array.from(uniqueValues).sort();
+            }
         });
         
-        // Create filter dropdowns instead of datalists for better cross-browser support
+        // Create filter inputs based on type
         filterColumns.forEach(column => {
             const filterItem = $('<div class="filter-item"></div>').appendTo('#filters');
             $('<div class="filter-label">' + column.name + '</div>').appendTo(filterItem);
             
-            // Create select dropdown for better visibility of options
-            const selectId = 'filter-' + column.name.toLowerCase().replace(/\s+/g, '-');
-            const select = $('<select class="form-select filter-input" id="' + selectId + '">');
-            
-            // Add empty option
-            $('<option value="">All ' + column.name + 's</option>').appendTo(select);
-            
-            // Add options from data
-            filterValues[column.name].forEach(value => {
-                if (value) {
-                    $('<option value="' + value + '">' + value + '</option>').appendTo(select);
-                }
-            });
-            
-            select.appendTo(filterItem).on('change', function() {
-                table.column(column.index).search(this.value).draw();
-                updateStats();
-            });
+            if (column.type === 'multi-select') {
+                // Create multiselect dropdown
+                const selectId = 'filter-' + column.name.toLowerCase().replace(/\s+/g, '-');
+                const select = $('<select class="form-select filter-input" id="' + selectId + '" multiple>');
+                
+                // Add options from data
+                filterValues[column.name].forEach(value => {
+                    if (value) {
+                        $('<option value="' + value + '">' + value + '</option>').appendTo(select);
+                    }
+                });
+                
+                select.appendTo(filterItem);
+                
+                // Initialize the multiselect
+                select.on('change', function() {
+                    const selectedValues = $(this).val() || [];
+                    if (selectedValues.length === 0) {
+                        // If nothing selected, clear filter
+                        table.column(column.index).search('').draw();
+                    } else {
+                        // Build regex for OR search
+                        const regexPattern = selectedValues.map(val => '^' + $.fn.dataTable.util.escapeRegex(val) + '$').join('|');
+                        table.column(column.index).search(regexPattern, true, false).draw();
+                    }
+                    updateStats();
+                });
+                
+                // Add Select All button
+                const controlsDiv = $('<div class="d-flex justify-content-between mt-1 select-controls"></div>').appendTo(filterItem);
+                const selectAllBtn = $('<button class="btn btn-sm btn-outline-primary">Select All</button>').appendTo(controlsDiv);
+                const clearBtn = $('<button class="btn btn-sm btn-outline-secondary">Clear</button>').appendTo(controlsDiv);
+                
+                selectAllBtn.on('click', function() {
+                    $('#' + selectId + ' option').prop('selected', true);
+                    $('#' + selectId).trigger('change');
+                });
+                
+                clearBtn.on('click', function() {
+                    $('#' + selectId + ' option').prop('selected', false);
+                    $('#' + selectId).trigger('change');
+                });
+                
+            } else if (column.type === 'range') {
+                // Create min/max range inputs
+                const rangeContainer = $('<div class="d-flex gap-2"></div>').appendTo(filterItem);
+                const minId = 'min-' + column.name.toLowerCase().replace(/\s+/g, '-');
+                const maxId = 'max-' + column.name.toLowerCase().replace(/\s+/g, '-');
+                
+                $('<input type="number" class="form-control filter-input" id="' + minId + '" placeholder="Min">').appendTo(rangeContainer);
+                $('<input type="number" class="form-control filter-input" id="' + maxId + '" placeholder="Max">').appendTo(rangeContainer);
+                
+                // Apply range filter
+                $('#' + minId + ', #' + maxId).on('change', function() {
+                    applyRangeFilter(column.index, minId, maxId);
+                });
+            }
         });
         
         // Add price range filter
         const priceFilter = $('<div class="filter-item"></div>').appendTo('#filters');
         $('<div class="filter-label">Price Range</div>').appendTo(priceFilter);
-        const priceInputGroup = $('<div style="display:flex;gap:8px;"></div>').appendTo(priceFilter);
-        $('<input type="number" class="filter-input" id="minPrice" placeholder="Min">').appendTo(priceInputGroup);
-        $('<input type="number" class="filter-input" id="maxPrice" placeholder="Max">').appendTo(priceInputGroup);
+        const priceInputGroup = $('<div class="d-flex gap-2"></div>').appendTo(priceFilter);
+        $('<input type="number" class="form-control filter-input" id="minPrice" placeholder="Min">').appendTo(priceInputGroup);
+        $('<input type="number" class="form-control filter-input" id="maxPrice" placeholder="Max">').appendTo(priceInputGroup);
         
         // Apply price range filter
         $('#minPrice, #maxPrice').on('change', function() {
-            const min = $('#minPrice').val();
-            const max = $('#maxPrice').val();
-            
-            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-                const price = parseFloat(data[2].replace(/[^0-9.-]+/g, '')) || 0;
-                
-                if ((min === '' || price >= min) && (max === '' || price <= max)) {
-                    return true;
-                }
-                return false;
-            });
-            
-            table.draw();
-            updateStats();
-            
-            // Clear the custom filter
-            $.fn.dataTable.ext.search.pop();
+            applyRangeFilter(2, 'minPrice', 'maxPrice');
         });
         
         // Reset filters button
         $('#resetFilters').on('click', function() {
+            // Clear all inputs
             $('.filter-input').val('');
-            $('select.filter-input').prop('selectedIndex', 0);
+            // Clear all multiselects
+            $('select.filter-input option').prop('selected', false);
+            // Reset the table search
             table.search('').columns().search('').draw();
+            // Clear any custom filters
+            $.fn.dataTable.ext.search.pop();
+            // Update stats
             updateStats();
         });
+    }
+    
+    // Helper function for range filters
+    function applyRangeFilter(columnIndex, minId, maxId) {
+        const min = $('#' + minId).val();
+        const max = $('#' + maxId).val();
+        
+        // Remove existing filter if any
+        $.fn.dataTable.ext.search.pop();
+        
+        // Add new filter
+        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+            const value = parseFloat(data[columnIndex]) || 0;
+            
+            if ((min === '' || value >= parseFloat(min)) && 
+                (max === '' || value <= parseFloat(max))) {
+                return true;
+            }
+            return false;
+        });
+        
+        table.draw();
+        updateStats();
     }
 
     // Update statistics in footer
