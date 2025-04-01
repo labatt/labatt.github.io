@@ -606,6 +606,65 @@
             transform: translateY(-2px);
             color: white;
         }
+        
+        /* Print button styling */
+        .btn-print {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .btn-print:hover {
+            background: #5a067d;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        /* Print-specific styles that will only apply during printing */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            
+            .print-container, .print-container * {
+                visibility: visible;
+            }
+            
+            .print-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            
+            .print-header {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            
+            .print-stats {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 20px;
+                border-top: 1px solid #ddd;
+                border-bottom: 1px solid #ddd;
+                padding: 10px 0;
+            }
+            
+            .print-stat-item {
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -712,6 +771,33 @@
                     <tbody></tbody>
                 </table>
             </div>
+            
+            <!-- Bottom Stats Section (duplicate of the top one) -->
+            <div class="table-stats mt-4">
+                <div class="stat-item">
+                    <div class="stat-value" id="rowCount-bottom">0</div>
+                    <div class="stat-label">Properties</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPrice-bottom">0</div>
+                    <div class="stat-label">Avg. Sale Price</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgSqft-bottom">0</div>
+                    <div class="stat-label">Avg. Square Footage</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPricePerSqft-bottom">0</div>
+                    <div class="stat-label">Avg. Price/SqFt</div>
+                </div>
+            </div>
+            
+            <!-- Printable View Button -->
+            <div class="text-center mt-4">
+                <button id="printableViewBtn" class="btn-print">
+                    <i class="fas fa-print"></i> Printable Table View
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -743,7 +829,8 @@ $(document).ready(function() {
             const visibleRows = table.rows({search: 'applied'}).data();
             const totalVisibleRows = visibleRows.length;
             
-            $('#rowCount').text(totalVisibleRows);
+            // Update both top and bottom stat counters
+            $('#rowCount, #rowCount-bottom').text(totalVisibleRows);
             
             let totalPrice = 0;
             let totalSqft = 0;
@@ -790,20 +877,21 @@ $(document).ready(function() {
                 const avgSqft = totalSqft / totalVisibleRows;
                 const avgPricePerSqft = totalPrice / totalSqft; // Calculate directly instead of averaging the per-row values
                 
-                $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
-                $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
-                $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+                // Update both top and bottom stats
+                $('#avgPrice, #avgPrice-bottom').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
+                $('#avgSqft, #avgSqft-bottom').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
+                $('#avgPricePerSqft, #avgPricePerSqft-bottom').text('$' + avgPricePerSqft.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
             } else {
                 // No rows match the filter
-                $('#avgPrice').text('$0');
-                $('#avgSqft').text('0');
-                $('#avgPricePerSqft').text('$0.00');
+                $('#avgPrice, #avgPrice-bottom').text('$0');
+                $('#avgSqft, #avgSqft-bottom').text('0');
+                $('#avgPricePerSqft, #avgPricePerSqft-bottom').text('$0.00');
             }
         } catch (e) {
             console.error("Error updating stats:", e);
-            $('#avgPrice').text('$0');
-            $('#avgSqft').text('0');
-            $('#avgPricePerSqft').text('$0.00');
+            $('#avgPrice, #avgPrice-bottom').text('$0');
+            $('#avgSqft, #avgSqft-bottom').text('0');
+            $('#avgPricePerSqft, #avgPricePerSqft-bottom').text('$0.00');
         }
     }
     
@@ -935,7 +1023,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 15'); // Increment each time there's a change
+                console.log('version 16'); // Increment each time there's a change
                 
                 const data = results.data.filter(row => row && row['Property Class']);
                 
@@ -1450,6 +1538,125 @@ $(document).ready(function() {
     $('#salesTable').on('length.dt', function() {
         updateStats();
         updateEntryCount();
+    });
+    
+    // Handle printable view button click
+    $('#printableViewBtn').on('click', function() {
+        // Create a new window for the printable view
+        const printWindow = window.open('', '_blank');
+        
+        // Get the current filtered data
+        const visibleRows = table.rows({search: 'applied'}).data();
+        const totalVisibleRows = visibleRows.length;
+        
+        // Get the current statistics
+        const properties = $('#rowCount').text();
+        const avgPrice = $('#avgPrice').text();
+        const avgSqft = $('#avgSqft').text();
+        const avgPricePerSqft = $('#avgPricePerSqft').text();
+        
+        // Create HTML content for the print window
+        let printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Printable Property Sales Data</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+                th { background-color: #006E3F; color: white; font-weight: bold; }
+                tr:nth-child(even) { background-color: #f2f2f2; }
+                .print-header { text-align: center; margin-bottom: 20px; }
+                .print-stats { display: flex; justify-content: space-between; margin-bottom: 20px; 
+                               border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; padding: 10px 0; }
+                .print-stat-item { text-align: center; }
+                .print-date { text-align: right; font-size: 12px; color: #666; margin-top: 20px; }
+                @media print {
+                    button { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="print-container">
+                <div class="print-header">
+                    <h1>East Greenbush Home Sales Data</h1>
+                    <p>Filtered Results - ${properties} Properties</p>
+                </div>
+                
+                <div class="print-stats">
+                    <div class="print-stat-item">
+                        <div><strong>Properties:</strong> ${properties}</div>
+                    </div>
+                    <div class="print-stat-item">
+                        <div><strong>Avg. Sale Price:</strong> ${avgPrice}</div>
+                    </div>
+                    <div class="print-stat-item">
+                        <div><strong>Avg. Square Footage:</strong> ${avgSqft}</div>
+                    </div>
+                    <div class="print-stat-item">
+                        <div><strong>Avg. Price/SqFt:</strong> ${avgPricePerSqft}</div>
+                    </div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tax ID</th>
+                            <th>Class</th>
+                            <th>Address</th>
+                            <th>Sale Date</th>
+                            <th>Sale Price</th>
+                            <th>SqFt</th>
+                            <th>$/SqFt</th>
+                            <th>Price Adj</th>
+                            <th>$/SqFt Adj</th>
+                            <th>Style</th>
+                            <th>Year</th>
+                            <th>Acres</th>
+                            <th>BR</th>
+                            <th>Bath</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+        
+        // Add data rows
+        for (let i = 0; i < totalVisibleRows; i++) {
+            const row = visibleRows[i];
+            printContent += '<tr>';
+            for (let j = 0; j < row.length; j++) {
+                // For addresses, remove the icon links
+                if (j === 2) {
+                    // Extract just the address text (remove HTML)
+                    const addressText = $('<div>').html(row[j]).text().split(' <span')[0];
+                    printContent += `<td>${addressText}</td>`;
+                } else {
+                    printContent += `<td>${row[j]}</td>`;
+                }
+            }
+            printContent += '</tr>';
+        }
+        
+        // Close the table and HTML structure
+        printContent += `
+                    </tbody>
+                </table>
+                
+                <div class="print-date">
+                    Printed on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="window.print()">Print This Page</button>
+                </div>
+            </div>
+        </body>
+        </html>`;
+        
+        // Write to the new window
+        printWindow.document.open();
+        printWindow.document.write(printContent);
+        printWindow.document.close();
     });
 });
 </script>
