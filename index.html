@@ -598,7 +598,6 @@ $(document).ready(function() {
             }},
             { title: "Price/SqFt", render: function(data) {
                 const value = parseFloat(data);
-                console.log(`Rendering Price/SqFt: ${data} -> ${value}`);
                 return isNaN(value) ? '$0.00' : '$' + value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }}, 
             { title: "Price Time Adj", render: function(data) {
@@ -652,42 +651,20 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 2'); // Increment each time there's a change
+                console.log('version 3'); // Increment each time there's a change
                 
-                // Debug: show first few rows with their values
-                console.log("First 3 rows of CSV data:");
-                results.data.slice(0, 3).forEach((row, index) => {
-                    console.log(`Row ${index + 1}:`, {
-                        'Property Class': row['Property Class'],
-                        'Sale Date': row['Sale Date'],
-                        'Sale Price': row['Sale Price'],
-                        'SqFt': row['SqFt'],
-                        'Sale Price per SqFt': row['Sale Price per SqFt'],
-                        'Sale Price Time Adj': row['Sale Price Time Adj'],
-                        'Sale Price Adj per SF': row['Sale Price Adj per SF'],
-                        'Style': row['Style'],
-                        'Year Built': row['Year Built'],
-                        'Acreage': row['Acreage'],
-                        'Bedrooms': row['Bedrooms'],
-                        'Baths': row['Baths']
-                    });
-                });
-                
+                // Remove all the debug logging code but keep the version
                 const data = results.data.filter(row => row && row['Property Class']);
                 
                 const formattedData = data.map(row => {
                     try {
-                        // Debug price/sqft values
-                        const pricePerSqft = row['Sale Price per SqFt'] || '0';
-                        console.log(`Price/SqFt processing: ${pricePerSqft}`);
-                        
                         // Simply pass through the values without special filtering
                         return [
                             row['Property Class'] || '',
                             row['Sale Date'] || '',
                             row['Sale Price'] || '0',
                             row['SqFt'] || '0',
-                            pricePerSqft,
+                            row['Sale Price per SqFt'] || '0',
                             row['Sale Price Time Adj'] || '0',
                             row['Sale Price Adj per SF'] || '0',
                             row['Style'] || '',
@@ -847,7 +824,61 @@ $(document).ready(function() {
             applyRangeFilter(2, 'minPrice', 'maxPrice');
         });
         
-        // Reset filters button
+        // Setup reset filters button
+        setupResetFilters();
+    }
+    
+    // Helper function for range filters
+    function applyRangeFilter(columnIndex, minId, maxId) {
+        const min = $('#' + minId).val();
+        const max = $('#' + maxId).val();
+        
+        // Store filter settings for this column
+        if (!table.settings()[0].customFilters) {
+            table.settings()[0].customFilters = {};
+        }
+        
+        // Update or clear this specific filter
+        if (min === '' && max === '') {
+            // If both empty, remove this filter
+            delete table.settings()[0].customFilters[columnIndex];
+        } else {
+            // Store this filter's settings
+            table.settings()[0].customFilters[columnIndex] = {
+                min: min === '' ? -Infinity : parseFloat(min),
+                max: max === '' ? Infinity : parseFloat(max)
+            };
+        }
+        
+        // Clear all current ext.search filters and add a single combined filter
+        while ($.fn.dataTable.ext.search.length > 0) {
+            $.fn.dataTable.ext.search.pop();
+        }
+        
+        // Add a single filter that handles all range filters
+        if (Object.keys(table.settings()[0].customFilters).length > 0) {
+            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                // Check all active filters
+                for (const [colIdx, filterSettings] of Object.entries(settings.customFilters)) {
+                    const value = parseFloat(data[colIdx]) || 0;
+                    
+                    // Check if this value is within range
+                    if (value < filterSettings.min || value > filterSettings.max) {
+                        return false; // This row doesn't match
+                    }
+                }
+                
+                // If we get here, all filters matched
+                return true;
+            });
+        }
+        
+        table.draw();
+        updateStats();
+    }
+    
+    // Reset filters button
+    function setupResetFilters() {
         $('#resetFilters').on('click', function() {
             // Clear all inputs
             $('.filter-input').val('');
@@ -856,34 +887,16 @@ $(document).ready(function() {
             // Reset the table search
             table.search('').columns().search('').draw();
             // Clear any custom filters
-            $.fn.dataTable.ext.search.pop();
+            while ($.fn.dataTable.ext.search.length > 0) {
+                $.fn.dataTable.ext.search.pop();
+            }
+            // Clear custom filters memory
+            if (table.settings()[0].customFilters) {
+                table.settings()[0].customFilters = {};
+            }
             // Update stats
             updateStats();
         });
-    }
-    
-    // Helper function for range filters
-    function applyRangeFilter(columnIndex, minId, maxId) {
-        const min = $('#' + minId).val();
-        const max = $('#' + maxId).val();
-        
-        // Remove existing filter if any
-        $.fn.dataTable.ext.search.pop();
-        
-        // Add new filter
-        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-            // Simply parse float values
-            const value = parseFloat(data[columnIndex]) || 0;
-            
-            const minVal = min === '' ? -Infinity : parseFloat(min);
-            const maxVal = max === '' ? Infinity : parseFloat(max);
-            
-            return (isNaN(minVal) || value >= minVal) && 
-                   (isNaN(maxVal) || value <= maxVal);
-        });
-        
-        table.draw();
-        updateStats();
     }
 
     // Update statistics in footer
@@ -903,8 +916,6 @@ $(document).ready(function() {
                     const price = parseFloat(rowData[2]) || 0;
                     const sqft = parseFloat(rowData[3]) || 0;
                     const pricePerSqft = parseFloat(rowData[4]) || 0;
-                    
-                    console.log(`Stats calculation - Price/SqFt: ${rowData[4]} -> ${pricePerSqft}`);
                     
                     totalPrice += price;
                     totalSqft += sqft;
@@ -1045,17 +1056,14 @@ $(document).ready(function() {
                 // Try to use the adjusted price per sqft if available
                 if (row['Sale Price Adj per SF']) {
                     pricePerSqft = parseFloat(row['Sale Price Adj per SF']) || 0;
-                    console.log(`Chart calculation - Price Adj/SqFt: ${row['Sale Price Adj per SF']} -> ${pricePerSqft}`);
                 } else if (row['Sale Price per SqFt']) {
                     pricePerSqft = parseFloat(row['Sale Price per SqFt']) || 0;
-                    console.log(`Chart calculation - Price/SqFt: ${row['Sale Price per SqFt']} -> ${pricePerSqft}`);
                 } else {
                     // Calculate manually as a last resort
                     const price = parseFloat(row['Sale Price']) || 0;
                     const sqft = parseFloat(row['SqFt']) || 1;
                     if (price > 0 && sqft > 0) {
                         pricePerSqft = price / sqft;
-                        console.log(`Chart calculation - Manual Price/SqFt: ${price}/${sqft} -> ${pricePerSqft}`);
                     }
                 }
                 
