@@ -502,7 +502,9 @@
                 <table id="salesTable" class="table table-striped table-hover">
                     <thead>
                         <tr>
+                            <th>Tax ID Number</th>
                             <th>Property Class</th>
+                            <th>Property Address</th>
                             <th>Sale Date</th>
                             <th>Sale Price</th>
                             <th>SqFt</th>
@@ -593,6 +595,8 @@ $(document).ready(function() {
             
             const filteredRows = table.rows({search:'applied'}).data();
             const totalRows = filteredRows.count();
+            
+            console.log(`Updating stats with ${totalRows} rows`);
             $('#rowCount').text(totalRows);
             
             let totalPrice = 0;
@@ -601,12 +605,27 @@ $(document).ready(function() {
             
             // Only proceed if there are rows
             if (totalRows > 0) {
-                filteredRows.each(function(rowData) {
+                filteredRows.each(function(rowData, i) {
                     try {
-                        // Simply parse float values
-                        const price = parseFloat(rowData[2]) || 0;
-                        const sqft = parseFloat(rowData[3]) || 0;
-                        const pricePerSqft = parseFloat(rowData[4]) || 0;
+                        // Get the raw values from the cells
+                        let priceRaw = rowData[4] || '0';
+                        let sqftRaw = rowData[5] || '0';
+                        let pricePerSqftRaw = rowData[6] || '0';
+                        
+                        // Clean the values - remove currency symbols and commas
+                        if (typeof priceRaw === 'string') priceRaw = priceRaw.replace(/[$,]/g, '');
+                        if (typeof sqftRaw === 'string') sqftRaw = sqftRaw.replace(/[$,]/g, '');
+                        if (typeof pricePerSqftRaw === 'string') pricePerSqftRaw = pricePerSqftRaw.replace(/[$,]/g, '');
+                        
+                        // Parse values
+                        const price = parseFloat(priceRaw) || 0;
+                        const sqft = parseFloat(sqftRaw) || 0;
+                        const pricePerSqft = parseFloat(pricePerSqftRaw) || 0;
+                        
+                        // Debug first 5 rows to understand the values
+                        if (i < 5) {
+                            console.log(`Row ${i}: Price=${priceRaw}->${price}, SqFt=${sqftRaw}->${sqft}, Price/SqFt=${pricePerSqftRaw}->${pricePerSqft}`);
+                        }
                         
                         totalPrice += price;
                         totalSqft += sqft;
@@ -620,14 +639,19 @@ $(document).ready(function() {
                 const avgSqft = totalSqft / totalRows;
                 const avgPricePerSqft = totalPricePerSqft / totalRows;
                 
+                console.log(`Calculated stats: Avg Price=$${avgPrice}, Avg SqFt=${avgSqft}, Avg Price/SqFt=$${avgPricePerSqft}`);
+                
                 $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
                 $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
                 $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {maximumFractionDigits: 2}));
+                
+                console.log('Stats updated successfully');
             } else {
                 // No rows match the filter
                 $('#avgPrice').text('$0');
                 $('#avgSqft').text('0');
                 $('#avgPricePerSqft').text('$0.00');
+                console.log('No rows match filter, stats reset to zero');
             }
         } catch (e) {
             console.error("Error updating stats:", e);
@@ -660,7 +684,9 @@ $(document).ready(function() {
         pageLength: 15,
         lengthMenu: [[10, 15, 25, 50, 100], [10, 15, 25, 50, 100]],
         columns: [
+            { title: "Tax ID Number" },
             { title: "Property Class" }, 
+            { title: "Property Address" },
             { title: "Sale Date" }, 
             { title: "Sale Price", render: function(data) {
                 const value = parseFloat(data);
@@ -689,9 +715,9 @@ $(document).ready(function() {
             { title: "Baths" }
         ],
         columnDefs: [
-            { className: "text-center", targets: [3, 8, 9, 10, 11] }
+            { className: "text-center", targets: [5, 10, 11, 12, 13] }
         ],
-        order: [[2, 'desc']], // Sort by sale price descending by default
+        order: [[4, 'desc']], // Sort by sale price descending by default
         autoWidth: false,
         responsive: true,
         language: {
@@ -731,7 +757,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 7'); // Increment each time there's a change
+                console.log('version 8'); // Increment each time there's a change
                 
                 // Remove all the debug logging code but keep the version
                 const data = results.data.filter(row => row && row['Property Class']);
@@ -740,7 +766,9 @@ $(document).ready(function() {
                     try {
                         // Simply pass through the values without special filtering
                         return [
+                            row['Tax ID Number'] || '',
                             row['Property Class'] || '',
+                            row['Property Address'] || '',
                             row['Sale Date'] || '',
                             row['Sale Price'] || '0',
                             row['SqFt'] || '0',
@@ -755,7 +783,7 @@ $(document).ready(function() {
                         ];
                     } catch (e) {
                         console.error("Error processing row:", e, row);
-                        return ['', '', '0', '0', '0', '0', '0', '', '', '0', '0', '0'];
+                        return ['', '', '', '', '0', '0', '0', '0', '0', '', '', '0', '0', '0'];
                     }
                 });
 
@@ -777,10 +805,10 @@ $(document).ready(function() {
         
         // Define filters with correct column indexes
         const filterColumns = [
-            { index: 0, name: 'Property Class', type: 'checkbox' },
-            { index: 7, name: 'Style', type: 'checkbox' },
-            { index: 10, name: 'Bedrooms', type: 'checkbox' },
-            { index: 11, name: 'Baths', type: 'checkbox' }
+            { index: 1, name: 'Property Class', type: 'checkbox' },
+            { index: 9, name: 'Style', type: 'checkbox' },
+            { index: 12, name: 'Bedrooms', type: 'checkbox' },
+            { index: 13, name: 'Baths', type: 'checkbox' }
         ];
         
         // Get unique values for each filter column
@@ -890,19 +918,19 @@ $(document).ready(function() {
         
         // Apply range filters
         $('#min-year-built, #max-year-built').on('change', function() {
-            applyRangeFilter(8, 'min-year-built', 'max-year-built');
+            applyRangeFilter(10, 'min-year-built', 'max-year-built');
         });
         
         $('#min-sqft, #max-sqft').on('change', function() {
-            applyRangeFilter(3, 'min-sqft', 'max-sqft');
+            applyRangeFilter(5, 'min-sqft', 'max-sqft');
         });
         
         $('#min-acreage, #max-acreage').on('change', function() {
-            applyRangeFilter(9, 'min-acreage', 'max-acreage');
+            applyRangeFilter(11, 'min-acreage', 'max-acreage');
         });
         
         $('#minPrice, #maxPrice').on('change', function() {
-            applyRangeFilter(2, 'minPrice', 'maxPrice');
+            applyRangeFilter(4, 'minPrice', 'maxPrice');
         });
         
         // Setup reset filters button
@@ -913,6 +941,8 @@ $(document).ready(function() {
     function applyRangeFilter(columnIndex, minId, maxId) {
         const min = $('#' + minId).val();
         const max = $('#' + maxId).val();
+        
+        console.log(`Applying range filter for column ${columnIndex}, min: ${min}, max: ${max}`);
         
         // Store filter settings for this column
         if (!table.settings()[0].customFilters) {
@@ -931,6 +961,8 @@ $(document).ready(function() {
             };
         }
         
+        console.log('Custom filters:', table.settings()[0].customFilters);
+        
         // Clear all current ext.search filters and add a single combined filter
         while ($.fn.dataTable.ext.search.length > 0) {
             $.fn.dataTable.ext.search.pop();
@@ -939,10 +971,32 @@ $(document).ready(function() {
         // Add a single filter that handles all range filters
         if (Object.keys(table.settings()[0].customFilters).length > 0) {
             $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                // Only process our own settings
+                if (settings.nTable.id !== 'salesTable') {
+                    return true;
+                }
+                
                 // Check all active filters
                 for (const [colIdx, filterSettings] of Object.entries(settings.customFilters)) {
-                    const colIndex = parseInt(colIdx);
-                    const value = parseFloat(data[colIndex]) || 0;
+                    const colIndex = parseInt(colIdx, 10); // Ensure base-10 parsing
+                    let value;
+                    
+                    try {
+                        // Remove currency symbols and commas for proper parsing
+                        let rawValue = data[colIndex] || '0';
+                        if (typeof rawValue === 'string') {
+                            rawValue = rawValue.replace(/[$,]/g, '');
+                        }
+                        value = parseFloat(rawValue) || 0;
+                        
+                        // For debugging SqFt filter issues
+                        if (colIndex === 5 && dataIndex < 5) {
+                            console.log(`Row ${dataIndex}, SqFt: "${data[colIndex]}" -> ${value}, range: ${filterSettings.min} to ${filterSettings.max}, matches: ${value >= filterSettings.min && value <= filterSettings.max}`);
+                        }
+                    } catch (e) {
+                        console.warn(`Error parsing value for column ${colIndex}:`, e);
+                        value = 0;
+                    }
                     
                     // Check if this value is within range
                     if (value < filterSettings.min || value > filterSettings.max) {
