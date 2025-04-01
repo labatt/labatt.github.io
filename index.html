@@ -442,6 +442,27 @@
             color: #ffffff !important;
             font-weight: 600 !important;
         }
+        
+        .range-group {
+            padding: 0.5rem;
+            border: 1px solid rgba(67, 97, 238, 0.1);
+            border-radius: 5px;
+            background-color: rgba(67, 97, 238, 0.05);
+            margin-bottom: 0.5rem;
+        }
+        
+        .range-group .filter-label {
+            font-weight: 500;
+            color: var(--secondary-color);
+            font-size: 0.875rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        /* Making filter range inputs narrower */
+        .range-group .form-control {
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -577,6 +598,7 @@ $(document).ready(function() {
             }},
             { title: "Price/SqFt", render: function(data) {
                 const value = parseFloat(data);
+                console.log(`Rendering Price/SqFt: ${data} -> ${value}`);
                 return isNaN(value) ? '$0.00' : '$' + value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }}, 
             { title: "Price Time Adj", render: function(data) {
@@ -630,20 +652,42 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log("CSV loaded:", results.data.slice(0, 3)); // Debug: show first few rows
+                console.log('version 2'); // Increment each time there's a change
+                
+                // Debug: show first few rows with their values
+                console.log("First 3 rows of CSV data:");
+                results.data.slice(0, 3).forEach((row, index) => {
+                    console.log(`Row ${index + 1}:`, {
+                        'Property Class': row['Property Class'],
+                        'Sale Date': row['Sale Date'],
+                        'Sale Price': row['Sale Price'],
+                        'SqFt': row['SqFt'],
+                        'Sale Price per SqFt': row['Sale Price per SqFt'],
+                        'Sale Price Time Adj': row['Sale Price Time Adj'],
+                        'Sale Price Adj per SF': row['Sale Price Adj per SF'],
+                        'Style': row['Style'],
+                        'Year Built': row['Year Built'],
+                        'Acreage': row['Acreage'],
+                        'Bedrooms': row['Bedrooms'],
+                        'Baths': row['Baths']
+                    });
+                });
                 
                 const data = results.data.filter(row => row && row['Property Class']);
                 
                 const formattedData = data.map(row => {
                     try {
+                        // Debug price/sqft values
+                        const pricePerSqft = row['Sale Price per SqFt'] || '0';
+                        console.log(`Price/SqFt processing: ${pricePerSqft}`);
+                        
                         // Simply pass through the values without special filtering
-                        // Return properly formatted data array
                         return [
                             row['Property Class'] || '',
                             row['Sale Date'] || '',
                             row['Sale Price'] || '0',
                             row['SqFt'] || '0',
-                            row['Sale Price per SqFt'] || '0',
+                            pricePerSqft,
                             row['Sale Price Time Adj'] || '0',
                             row['Sale Price Adj per SF'] || '0',
                             row['Style'] || '',
@@ -679,9 +723,7 @@ $(document).ready(function() {
             { index: 0, name: 'Property Class', type: 'checkbox' },
             { index: 7, name: 'Style', type: 'checkbox' },
             { index: 10, name: 'Bedrooms', type: 'checkbox' },
-            { index: 11, name: 'Baths', type: 'checkbox' },
-            { index: 8, name: 'Year Built', type: 'range' },
-            { index: 9, name: 'Acreage', type: 'range' }
+            { index: 11, name: 'Baths', type: 'checkbox' }
         ];
         
         // Get unique values for each filter column
@@ -750,31 +792,57 @@ $(document).ready(function() {
                 clearBtn.on('click', function() {
                     checkboxContainer.find('input[type="checkbox"]').prop('checked', false).trigger('change');
                 });
-                
-            } else if (column.type === 'range') {
-                // Create min/max range inputs
-                const rangeContainer = $('<div class="d-flex gap-2"></div>').appendTo(filterItem);
-                const minId = 'min-' + column.name.toLowerCase().replace(/\s+/g, '-');
-                const maxId = 'max-' + column.name.toLowerCase().replace(/\s+/g, '-');
-                
-                $('<input type="number" class="form-control filter-input" id="' + minId + '" placeholder="Min">').appendTo(rangeContainer);
-                $('<input type="number" class="form-control filter-input" id="' + maxId + '" placeholder="Max">').appendTo(rangeContainer);
-                
-                // Apply range filter
-                $('#' + minId + ', #' + maxId).on('change', function() {
-                    applyRangeFilter(column.index, minId, maxId);
-                });
             }
         });
         
-        // Add price range filter
-        const priceFilter = $('<div class="filter-item"></div>').appendTo('#filters');
-        $('<div class="filter-label">Price Range</div>').appendTo(priceFilter);
-        const priceInputGroup = $('<div class="d-flex gap-2"></div>').appendTo(priceFilter);
-        $('<input type="number" class="form-control filter-input" id="minPrice" placeholder="Min">').appendTo(priceInputGroup);
-        $('<input type="number" class="form-control filter-input" id="maxPrice" placeholder="Max">').appendTo(priceInputGroup);
+        // Add range filters in a single row
+        const rangeFilterRow = $('<div class="filter-item"></div>').appendTo('#filters');
+        $('<div class="filter-label">Range Filters</div>').appendTo(rangeFilterRow);
         
-        // Apply price range filter
+        // Container for all range filters
+        const rangeContainer = $('<div class="d-flex flex-wrap gap-2"></div>').appendTo(rangeFilterRow);
+        
+        // Add Year Built range
+        const yearBuiltGroup = $('<div class="range-group" style="flex: 1 1 auto;"></div>').appendTo(rangeContainer);
+        $('<div class="filter-label">Year Built</div>').appendTo(yearBuiltGroup);
+        const yearBuiltInputs = $('<div class="d-flex gap-2"></div>').appendTo(yearBuiltGroup);
+        $('<input type="number" class="form-control filter-input" id="min-year-built" placeholder="Min">').appendTo(yearBuiltInputs);
+        $('<input type="number" class="form-control filter-input" id="max-year-built" placeholder="Max">').appendTo(yearBuiltInputs);
+        
+        // Add SqFt range
+        const sqftGroup = $('<div class="range-group" style="flex: 1 1 auto;"></div>').appendTo(rangeContainer);
+        $('<div class="filter-label">SqFt</div>').appendTo(sqftGroup);
+        const sqftInputs = $('<div class="d-flex gap-2"></div>').appendTo(sqftGroup);
+        $('<input type="number" class="form-control filter-input" id="min-sqft" placeholder="Min">').appendTo(sqftInputs);
+        $('<input type="number" class="form-control filter-input" id="max-sqft" placeholder="Max">').appendTo(sqftInputs);
+        
+        // Add Acreage range
+        const acreageGroup = $('<div class="range-group" style="flex: 1 1 auto;"></div>').appendTo(rangeContainer);
+        $('<div class="filter-label">Acreage</div>').appendTo(acreageGroup);
+        const acreageInputs = $('<div class="d-flex gap-2"></div>').appendTo(acreageGroup);
+        $('<input type="number" class="form-control filter-input" id="min-acreage" placeholder="Min" step="0.01">').appendTo(acreageInputs);
+        $('<input type="number" class="form-control filter-input" id="max-acreage" placeholder="Max" step="0.01">').appendTo(acreageInputs);
+        
+        // Add Price range
+        const priceGroup = $('<div class="range-group" style="flex: 1 1 auto;"></div>').appendTo(rangeContainer);
+        $('<div class="filter-label">Price Range</div>').appendTo(priceGroup);
+        const priceInputs = $('<div class="d-flex gap-2"></div>').appendTo(priceGroup);
+        $('<input type="number" class="form-control filter-input" id="minPrice" placeholder="Min">').appendTo(priceInputs);
+        $('<input type="number" class="form-control filter-input" id="maxPrice" placeholder="Max">').appendTo(priceInputs);
+        
+        // Apply range filters
+        $('#min-year-built, #max-year-built').on('change', function() {
+            applyRangeFilter(8, 'min-year-built', 'max-year-built');
+        });
+        
+        $('#min-sqft, #max-sqft').on('change', function() {
+            applyRangeFilter(3, 'min-sqft', 'max-sqft');
+        });
+        
+        $('#min-acreage, #max-acreage').on('change', function() {
+            applyRangeFilter(9, 'min-acreage', 'max-acreage');
+        });
+        
         $('#minPrice, #maxPrice').on('change', function() {
             applyRangeFilter(2, 'minPrice', 'maxPrice');
         });
@@ -835,6 +903,8 @@ $(document).ready(function() {
                     const price = parseFloat(rowData[2]) || 0;
                     const sqft = parseFloat(rowData[3]) || 0;
                     const pricePerSqft = parseFloat(rowData[4]) || 0;
+                    
+                    console.log(`Stats calculation - Price/SqFt: ${rowData[4]} -> ${pricePerSqft}`);
                     
                     totalPrice += price;
                     totalSqft += sqft;
@@ -975,14 +1045,17 @@ $(document).ready(function() {
                 // Try to use the adjusted price per sqft if available
                 if (row['Sale Price Adj per SF']) {
                     pricePerSqft = parseFloat(row['Sale Price Adj per SF']) || 0;
+                    console.log(`Chart calculation - Price Adj/SqFt: ${row['Sale Price Adj per SF']} -> ${pricePerSqft}`);
                 } else if (row['Sale Price per SqFt']) {
                     pricePerSqft = parseFloat(row['Sale Price per SqFt']) || 0;
+                    console.log(`Chart calculation - Price/SqFt: ${row['Sale Price per SqFt']} -> ${pricePerSqft}`);
                 } else {
                     // Calculate manually as a last resort
                     const price = parseFloat(row['Sale Price']) || 0;
                     const sqft = parseFloat(row['SqFt']) || 1;
                     if (price > 0 && sqft > 0) {
                         pricePerSqft = price / sqft;
+                        console.log(`Chart calculation - Manual Price/SqFt: ${price}/${sqft} -> ${pricePerSqft}`);
                     }
                 }
                 
