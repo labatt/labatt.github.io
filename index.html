@@ -493,6 +493,9 @@
                         <button class="btn-reset" id="resetFilters">Reset Filters</button>
                     </div>
                 </div>
+                <div class="d-flex justify-content-between align-items-center my-3">
+                    <div id="entryCountInfo" class="text-secondary">Showing 0 entries</div>
+                </div>
             </div>
             
             <div class="table-responsive">
@@ -641,6 +644,10 @@ $(document).ready(function() {
                 'background-color': 'white',
                 'margin': '0 5px'
             });
+            
+            // Update stats and entry count whenever table is redrawn
+            updateStats();
+            updateEntryCount();
         }
     });
 
@@ -651,7 +658,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 3'); // Increment each time there's a change
+                console.log('version 4'); // Increment each time there's a change
                 
                 // Remove all the debug logging code but keep the version
                 const data = results.data.filter(row => row && row['Property Class']);
@@ -753,6 +760,7 @@ $(document).ready(function() {
                                 table.column(column.index).search(regexPattern, true, false).draw();
                             }
                             updateStats();
+                            updateEntryCount();
                         });
                     }
                 });
@@ -875,6 +883,7 @@ $(document).ready(function() {
         
         table.draw();
         updateStats();
+        updateEntryCount();
     }
     
     // Reset filters button
@@ -896,6 +905,7 @@ $(document).ready(function() {
             }
             // Update stats
             updateStats();
+            updateEntryCount();
         });
     }
 
@@ -1148,7 +1158,26 @@ $(document).ready(function() {
         });
     }
 
+    // Update entry count text
+    function updateEntryCount() {
+        const filteredRows = table.rows({search: 'applied'}).count();
+        const totalRows = table.rows().count();
+        $('#entryCountInfo').text(`Showing ${filteredRows} of ${totalRows} entries`);
+    }
+
     loadCSVData();
+    
+    // Listen for DataTable page change events
+    $('#salesTable').on('page.dt', function() {
+        updateStats();
+        updateEntryCount();
+    });
+    
+    // Listen for length (entries per page) change
+    $('#salesTable').on('length.dt', function() {
+        updateStats();
+        updateEntryCount();
+    });
 });
 </script>
 </body>
