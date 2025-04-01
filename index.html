@@ -159,18 +159,31 @@
             margin-bottom: 0.3rem;
         }
         
-        .filter-input {
+        .filter-input, select.filter-input {
             border: 1px solid rgba(0,0,0,0.1);
             border-radius: 5px;
             padding: 0.5rem;
             width: 100%;
             font-size: 0.9rem;
+            background-color: white;
         }
         
-        .filter-input:focus {
+        .filter-input:focus, select.filter-input:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
+        }
+        
+        /* Custom styling for select elements */
+        select.filter-input {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(0, 0, 0, 0.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 1rem;
+            padding-right: 2rem;
         }
         
         .filter-actions {
@@ -442,9 +455,9 @@ $(document).ready(function() {
     
     // Initialize DataTable with fewer visible columns
     const table = $('#salesTable').DataTable({
-        dom: '<"d-flex justify-content-between align-items-center mb-3"fl>rtip',  // Show length menu and processing
+        dom: '<"d-flex justify-content-between align-items-center mb-3"<"d-flex align-items-center"l><"d-flex"f>>rtip',
         pageLength: 15,
-        lengthMenu: [10, 15, 25, 50, 100],
+        lengthMenu: [[10, 15, 25, 50, 100], [10, 15, 25, 50, 100]],
         columns: [
             { title: "Property Class" }, 
             { title: "Sale Date" }, 
@@ -481,6 +494,15 @@ $(document).ready(function() {
                 'background-color': '#4361ee',
                 'color': 'white'
             });
+            
+            // Apply styling to the length menu dropdown
+            $('.dataTables_length select').css({
+                'padding': '6px',
+                'border-radius': '5px',
+                'border': '1px solid rgba(0,0,0,0.1)',
+                'background-color': 'white',
+                'margin': '0 5px'
+            });
         }
     });
 
@@ -491,20 +513,29 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
+                console.log("CSV loaded:", results.data.slice(0, 3)); // Debug: show first few rows
+                
                 const data = results.data.filter(row => row && row['Property Class']);
                 
                 const formattedData = data.map(row => {
                     // Use safe type conversions with fallback values
                     const salePrice = row['Sale Price'] ? String(row['Sale Price']).replace(/[^0-9]/g, '') : '0';
                     
-                    // Handle Price/SqFt more carefully
+                    // Extract and clean Price/SqFt value
                     let pricePerSqft = '0';
                     if (row['Sale Price per SqFt']) {
-                        // Strip non-numeric characters except decimal point
-                        const cleanValue = String(row['Sale Price per SqFt']).replace(/[^0-9.]/g, '');
+                        // First, strip the $ and any non-numeric chars except decimal point
+                        const rawValue = String(row['Sale Price per SqFt']).trim();
+                        const cleanValue = rawValue.replace(/[$,]/g, '');
+                        
                         // Make sure it's a valid number
                         const numValue = parseFloat(cleanValue);
                         pricePerSqft = !isNaN(numValue) ? numValue.toString() : '0';
+                        
+                        // Debug
+                        if (numValue <= 0) {
+                            console.log("Invalid price/sqft value:", rawValue, "→", cleanValue, "→", numValue);
+                        }
                     }
                     
                     return [
@@ -551,34 +582,36 @@ $(document).ready(function() {
         filterColumns.forEach(column => {
             const uniqueValues = new Set();
             table.column(column.index).data().each(function(value) {
-                if (value && value.trim() !== '') {
-                    uniqueValues.add(value.toString().trim());
+                if (value && String(value).trim() !== '') {
+                    uniqueValues.add(String(value).trim());
                 }
             });
             filterValues[column.name] = Array.from(uniqueValues).sort();
         });
         
-        // Create filter inputs with datalists
+        // Create filter dropdowns instead of datalists for better cross-browser support
         filterColumns.forEach(column => {
             const filterItem = $('<div class="filter-item"></div>').appendTo('#filters');
             $('<div class="filter-label">' + column.name + '</div>').appendTo(filterItem);
             
-            // Create input with datalist for suggestions
-            const inputId = 'filter-' + column.name.toLowerCase().replace(/\s+/g, '-');
-            const datalistId = 'list-' + inputId;
+            // Create select dropdown for better visibility of options
+            const selectId = 'filter-' + column.name.toLowerCase().replace(/\s+/g, '-');
+            const select = $('<select class="form-select filter-input" id="' + selectId + '">');
             
-            const input = $('<input type="text" class="filter-input" id="' + inputId + '" placeholder="Filter ' + column.name + '" list="' + datalistId + '">');
-            input.appendTo(filterItem).on('keyup change', function() {
+            // Add empty option
+            $('<option value="">All ' + column.name + 's</option>').appendTo(select);
+            
+            // Add options from data
+            filterValues[column.name].forEach(value => {
+                if (value) {
+                    $('<option value="' + value + '">' + value + '</option>').appendTo(select);
+                }
+            });
+            
+            select.appendTo(filterItem).on('change', function() {
                 table.column(column.index).search(this.value).draw();
                 updateStats();
             });
-            
-            // Create datalist with options
-            const datalist = $('<datalist id="' + datalistId + '"></datalist>');
-            filterValues[column.name].forEach(value => {
-                $('<option value="' + value + '"></option>').appendTo(datalist);
-            });
-            datalist.appendTo(filterItem);
         });
         
         // Add price range filter
@@ -612,6 +645,7 @@ $(document).ready(function() {
         // Reset filters button
         $('#resetFilters').on('click', function() {
             $('.filter-input').val('');
+            $('select.filter-input').prop('selectedIndex', 0);
             table.search('').columns().search('').draw();
             updateStats();
         });
