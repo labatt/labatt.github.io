@@ -599,28 +599,36 @@ $(document).ready(function() {
             let totalSqft = 0;
             let totalPricePerSqft = 0;
             
-            filteredRows.each(function(rowData) {
-                try {
-                    // Simply parse float values
-                    const price = parseFloat(rowData[2]) || 0;
-                    const sqft = parseFloat(rowData[3]) || 0;
-                    const pricePerSqft = parseFloat(rowData[4]) || 0;
-                    
-                    totalPrice += price;
-                    totalSqft += sqft;
-                    totalPricePerSqft += pricePerSqft;
-                } catch (e) {
-                    console.warn("Error processing row for stats:", e);
-                }
-            });
-            
-            const avgPrice = totalPrice / (totalRows || 1);
-            const avgSqft = totalSqft / (totalRows || 1);
-            const avgPricePerSqft = totalPricePerSqft / (totalRows || 1);
-            
-            $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
-            $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
-            $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {maximumFractionDigits: 2}));
+            // Only proceed if there are rows
+            if (totalRows > 0) {
+                filteredRows.each(function(rowData) {
+                    try {
+                        // Simply parse float values
+                        const price = parseFloat(rowData[2]) || 0;
+                        const sqft = parseFloat(rowData[3]) || 0;
+                        const pricePerSqft = parseFloat(rowData[4]) || 0;
+                        
+                        totalPrice += price;
+                        totalSqft += sqft;
+                        totalPricePerSqft += pricePerSqft;
+                    } catch (e) {
+                        console.warn("Error processing row for stats:", e);
+                    }
+                });
+                
+                const avgPrice = totalPrice / totalRows;
+                const avgSqft = totalSqft / totalRows;
+                const avgPricePerSqft = totalPricePerSqft / totalRows;
+                
+                $('#avgPrice').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
+                $('#avgSqft').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
+                $('#avgPricePerSqft').text('$' + avgPricePerSqft.toLocaleString('en-US', {maximumFractionDigits: 2}));
+            } else {
+                // No rows match the filter
+                $('#avgPrice').text('$0');
+                $('#avgSqft').text('0');
+                $('#avgPricePerSqft').text('$0.00');
+            }
         } catch (e) {
             console.error("Error updating stats:", e);
             $('#avgPrice').text('$0');
@@ -723,7 +731,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 5'); // Increment each time there's a change
+                console.log('version 6'); // Increment each time there's a change
                 
                 // Remove all the debug logging code but keep the version
                 const data = results.data.filter(row => row && row['Property Class']);
@@ -933,7 +941,8 @@ $(document).ready(function() {
             $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
                 // Check all active filters
                 for (const [colIdx, filterSettings] of Object.entries(settings.customFilters)) {
-                    const value = parseFloat(data[colIdx]) || 0;
+                    const colIndex = parseInt(colIdx);
+                    const value = parseFloat(data[colIndex]) || 0;
                     
                     // Check if this value is within range
                     if (value < filterSettings.min || value > filterSettings.max) {
