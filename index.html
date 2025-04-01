@@ -430,7 +430,9 @@ $(document).ready(function() {
                 return '<span class="price-cell">$' + data + '</span>';
             }}, 
             { title: "SqFt" },
-            { title: "Price/SqFt" }, 
+            { title: "Price/SqFt", render: function(data) {
+                return '$' + parseFloat(data).toFixed(2);
+            }}, 
             { title: "Style" },
             { title: "Year Built" }, 
             { title: "Acreage" }, 
@@ -450,18 +452,24 @@ $(document).ready(function() {
             header: true,
             complete: function(results) {
                 const data = results.data.filter(row => row['Property Class']);
-                const formattedData = data.map(row => ([
-                    row['Property Class'],
-                    row['Sale Date'],
-                    row['Sale Price'].replace(/[^0-9]/g, ''),
-                    row['SqFt'],
-                    row['Sale Price per SqFt'].replace(/[^0-9.]/g, ''),
-                    row['Style'],
-                    row['Year Built'],
-                    row['Acreage'],
-                    row['Bedrooms'],
-                    row['Baths']
-                ]));
+                const formattedData = data.map(row => {
+                    // Clean up the price per sqft value to ensure it's a number
+                    let pricePerSqft = row['Sale Price per SqFt'] || '';
+                    pricePerSqft = pricePerSqft.replace(/[^0-9.]/g, '');
+                    
+                    return [
+                        row['Property Class'],
+                        row['Sale Date'],
+                        row['Sale Price'].replace(/[^0-9]/g, ''),
+                        row['SqFt'],
+                        pricePerSqft,  // Make sure it's a clean number
+                        row['Style'],
+                        row['Year Built'],
+                        row['Acreage'],
+                        row['Bedrooms'],
+                        row['Baths']
+                    ];
+                });
 
                 table.rows.add(formattedData).draw();
                 createFilters();
