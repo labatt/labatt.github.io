@@ -370,7 +370,7 @@
             padding: 0.75rem;
             display: flex;
             justify-content: space-around;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
             box-shadow: var(--box-shadow);
         }
         
@@ -678,27 +678,7 @@
 </div>
 
 <div class="dashboard-container">
-    <!-- Stats Section -->
-    <div class="table-stats">
-        <div class="stat-item">
-            <div class="stat-value" id="rowCount">0</div>
-            <div class="stat-label">Properties</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value" id="avgPrice">0</div>
-            <div class="stat-label">Avg. Sale Price</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value" id="avgSqft">0</div>
-            <div class="stat-label">Avg. Square Footage</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value" id="avgPricePerSqft">0</div>
-            <div class="stat-label">Avg. Price/SqFt</div>
-        </div>
-    </div>
-    
-    <!-- Charts Section -->
+    <!-- Charts Section - Moved to the top -->
     <div class="charts-row">
         <div class="card chart-card">
             <div class="card-header">
@@ -733,6 +713,30 @@
             </div>
         </div>
         <div class="card-body">
+            <!-- Stats Section - Moved right above the filter section -->
+            <div class="table-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="rowCount">0</div>
+                    <div class="stat-label">Properties</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPrice">0</div>
+                    <div class="stat-label">Avg. Sale Price</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPriceAdj">0</div>
+                    <div class="stat-label">Avg. Price Adj</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgSqft">0</div>
+                    <div class="stat-label">Avg. Square Footage</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPricePerSqft">0</div>
+                    <div class="stat-label">Avg. Price/SqFt</div>
+                </div>
+            </div>
+            
             <div class="filter-section" id="filterSection">
                 <button class="filter-toggle" id="toggleFilters">
                     <i class="fas fa-filter"></i> Show Filters
@@ -786,6 +790,10 @@
                     <div class="stat-label">Avg. Sale Price</div>
                 </div>
                 <div class="stat-item">
+                    <div class="stat-value" id="avgPriceAdj-bottom">0</div>
+                    <div class="stat-label">Avg. Price Adj</div>
+                </div>
+                <div class="stat-item">
                     <div class="stat-value" id="avgSqft-bottom">0</div>
                     <div class="stat-label">Avg. Square Footage</div>
                 </div>
@@ -829,6 +837,7 @@ $(document).ready(function() {
             $('#rowCount, #rowCount-bottom').text(totalVisibleRows);
             
             let totalPrice = 0;
+            let totalPriceAdj = 0;
             let totalSqft = 0;
             let totalPricePerSqft = 0;
             
@@ -841,12 +850,16 @@ $(document).ready(function() {
                         
                         // Get the raw values from the cells
                         let priceRaw = rowData[4] || '0';
+                        let priceAdjRaw = rowData[7] || '0';
                         let sqftRaw = rowData[5] || '0';
                         let pricePerSqftRaw = rowData[6] || '0';
                         
                         // Clean the values - remove currency symbols and commas
                         if (typeof priceRaw === 'string') {
                             priceRaw = priceRaw.replace(/[$,]/g, '');
+                        }
+                        if (typeof priceAdjRaw === 'string') {
+                            priceAdjRaw = priceAdjRaw.replace(/[$,]/g, '');
                         }
                         if (typeof sqftRaw === 'string') {
                             sqftRaw = sqftRaw.replace(/[,$]/g, '');
@@ -857,10 +870,12 @@ $(document).ready(function() {
                         
                         // Parse values
                         const price = parseFloat(priceRaw) || 0;
+                        const priceAdj = parseFloat(priceAdjRaw) || 0;
                         const sqft = parseFloat(sqftRaw) || 0;
                         const pricePerSqft = parseFloat(pricePerSqftRaw) || 0;
                         
                         totalPrice += price;
+                        totalPriceAdj += priceAdj;
                         totalSqft += sqft;
                         totalPricePerSqft += pricePerSqft;
                     } catch (e) {
@@ -870,22 +885,26 @@ $(document).ready(function() {
                 
                 // Calculate averages
                 const avgPrice = totalPrice / totalVisibleRows;
+                const avgPriceAdj = totalPriceAdj / totalVisibleRows;
                 const avgSqft = totalSqft / totalVisibleRows;
                 const avgPricePerSqft = totalPrice / totalSqft; // Calculate directly instead of averaging the per-row values
                 
                 // Update both top and bottom stats
                 $('#avgPrice, #avgPrice-bottom').text('$' + avgPrice.toLocaleString('en-US', {maximumFractionDigits: 0}));
+                $('#avgPriceAdj, #avgPriceAdj-bottom').text('$' + avgPriceAdj.toLocaleString('en-US', {maximumFractionDigits: 0}));
                 $('#avgSqft, #avgSqft-bottom').text(avgSqft.toLocaleString('en-US', {maximumFractionDigits: 0}));
                 $('#avgPricePerSqft, #avgPricePerSqft-bottom').text('$' + avgPricePerSqft.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
             } else {
                 // No rows match the filter
                 $('#avgPrice, #avgPrice-bottom').text('$0');
+                $('#avgPriceAdj, #avgPriceAdj-bottom').text('$0');
                 $('#avgSqft, #avgSqft-bottom').text('0');
                 $('#avgPricePerSqft, #avgPricePerSqft-bottom').text('$0.00');
             }
         } catch (e) {
             console.error("Error updating stats:", e);
             $('#avgPrice, #avgPrice-bottom').text('$0');
+            $('#avgPriceAdj, #avgPriceAdj-bottom').text('$0');
             $('#avgSqft, #avgSqft-bottom').text('0');
             $('#avgPricePerSqft, #avgPricePerSqft-bottom').text('$0.00');
         }
@@ -1019,7 +1038,7 @@ $(document).ready(function() {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                console.log('version 19'); // Increment each time there's a change
+                console.log('version 21'); // Increment each time there's a change
                 
                 const data = results.data.filter(row => row && row['Property Class']);
                 
@@ -1548,6 +1567,7 @@ $(document).ready(function() {
         // Get the current statistics
         const properties = $('#rowCount').text();
         const avgPrice = $('#avgPrice').text();
+        const avgPriceAdj = $('#avgPriceAdj').text();
         const avgSqft = $('#avgSqft').text();
         const avgPricePerSqft = $('#avgPricePerSqft').text();
         
@@ -1586,6 +1606,9 @@ $(document).ready(function() {
                     </div>
                     <div class="print-stat-item">
                         <div><strong>Avg. Sale Price:</strong> ${avgPrice}</div>
+                    </div>
+                    <div class="print-stat-item">
+                        <div><strong>Avg. Price Adj:</strong> ${avgPriceAdj}</div>
                     </div>
                     <div class="print-stat-item">
                         <div><strong>Avg. Square Footage:</strong> ${avgSqft}</div>
